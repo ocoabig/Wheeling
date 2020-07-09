@@ -1,0 +1,92 @@
+---
+title: "Replicate"
+author: "Abigail O'Connor"
+date: "6/27/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+if(!require(ggplot2)){install.packages("ggplot2")}
+library(ggplot2)
+library(ggmap)
+library("psych")
+```
+
+```{r loading data}
+## Loading data
+rep <- read.csv("replicate.csv")
+
+ranch <- subset(rep, Site == "Ranch")
+kroger <- subset(rep, Site == "Kroger")
+```
+
+```{r graphs}
+## barplot
+
+
+groupmeans <- data.frame(E_coli_MPN = 0, SE = 0, Site = 0, Median = 0)
+counter <- 1
+for(i in levels(rep$Site)){
+  groupmeans[counter, 1] <- geometric.mean(subset(rep, Site == as.character(i))$E_coli_MPN)
+  groupmeans[counter, 2] <- sd(subset(rep, Site == as.character(i))$E_coli_MPN)/
+    sqrt(length(groupmeans[counter, 1] <- geometric.mean(subset(rep, Site == as.character(i))$E_coli_MPN)))
+  groupmeans[counter, 4] <- median(subset(rep, Site == as.character(i))$E_coli_MPN)
+  counter <- counter + 1 
+}
+groupmeans$Site <- as.vector (levels(rep$Site))
+print(groupmeans$Site)
+
+ggplot() +
+  geom_bar(data = kroger, aes(x = Bank, y = E_coli_MPN), col = "black", fill = "grey", 
+           stat = "summary", position = position_dodge()) + 
+  geom_errorbar(data = groupmeans, aes(x = Bank, ymin = E_coli_MPN - SE, ymax = E_coli_MPN + SE),
+                width = 0.25, col = "black") +
+  geom_hline(yintercept = 126, linetype = 1, col = "blue") +
+  geom_errorbar(data = groupmeans, aes(x = Site, ymin = Median, ymax = Median), 
+                col = "black", size = 1)+
+  xlab("Bank") +
+  ylab("E. coli MPN (CFU)") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  theme(axis.text.y = element_text(size = 10))
+
+ggplot() +
+  geom_bar(data = groupmeans, aes(x = Site, y = E_coli_MPN), col = "black", fill = "grey", 
+           stat= "summary", position = position_dodge()) + 
+  geom_errorbar(data = groupmeans, aes(x = Site, ymin = E_coli_MPN - SE, ymax = E_coli_MPN + SE),
+                width = 0.25, col = "black") +
+  #geom_hline(yintercept = 126, linetype = 1, col = "blue") +
+  #geom_errorbar(data = groupmeans, aes(x = Site, ymin = Median, ymax = Median), 
+                #col = "black", size = 1)+
+  scale_y_continuous(breaks = c(0, 200, 400, 600, 800, 1000, 2000, 3000)) +
+  xlab("Site") +
+  ylab("E. coli MPN (CFU)") +
+  labs(title = "Replicate") +
+  theme_classic() +
+  theme(axis.text.x = element_text(hjust = 1, size = 12)) +
+  theme(axis.text.y = element_text(size = 12))
+
+# box and whisker
+
+ggplot(data = rep, aes(x = Site, y = E_coli_MPN), col = "black", fill = "grey") +
+  #scale_y_continuous(trans='log') +
+  geom_boxplot() +
+  #geom_hline(yintercept = 126, linetype = 1, col = "blue") +
+  xlab("Bank") +
+  ylab("E. coli MPN (CFU)") +
+  theme_classic()
+```
+
+```{r anova}
+## ANOVA between sites
+
+rep.lm <- lm(E_coli_MPN ~ Site, data = rep)
+rep.av <- aov(rep.lm)
+summary(rep.av)
+tukey.test <- TukeyHSD(rep.av)
+tukey.test
+
+```
