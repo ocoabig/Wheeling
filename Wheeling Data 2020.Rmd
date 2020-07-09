@@ -1,0 +1,459 @@
+---
+title: "Wheeling Creek"
+author: "Abigail O'Connor"
+date: "3/21/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## loading data and packages
+
+```{r wheeling data}
+wheeling <- read.csv("Wheeling Creek Data.csv")
+if(!require(ggplot2)){install.packages("ggplot2", dependencies = TRUE)}
+library(ggplot2)
+library(ggmap)
+library("psych")          
+data <- subset(wheeling, E_coli_MPN != "NA")
+names(wheeling)
+```
+
+## entire creek graphs and data
+
+```{r creek graphs}
+#correlation scatter plots
+#e. coli and turbidity
+ggplot(data = data, aes(y = E_coli_MPN, x = Turbidity), stat = "identity", fill = "grey") + 
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  xlab("Turbidity") +
+  ylab("MPN") + 
+  #scale_y_continuous(trans='log10') +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 16),
+        axis.text.x = element_text(size = 12), axis.text.y = element_text(size = 12), 
+        axis.title.x = element_text(size = 12), axis.title.y = element_text(size = 12), 
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+#e. coli and rain
+ggplot(data = data, aes(y = E_coli_MPN, x = Rain_cm), stat = "identity", fill = "grey") + 
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  xlab("Rain") +
+  ylab("MPN") + 
+  #scale_y_continuous(trans='log10') +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 16),
+        axis.text.x = element_text(size = 12), axis.text.y = element_text(size = 12), 
+        axis.title.x = element_text(size = 12), axis.title.y = element_text(size = 12), 
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+#e. coli and SPC
+ggplot(data = data, aes(y = E_coli_MPN, x = Cl), stat = "identity", fill = "grey") + 
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  xlab("SPC") +
+  ylab("MPN") + 
+  scale_y_continuous(trans='log10') +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 16),
+        axis.text.x = element_text(size = 12), axis.text.y = element_text(size = 12), 
+        axis.title.x = element_text(size = 12), axis.title.y = element_text(size = 12), 
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+#e. coli and flow
+ggplot(data = data, aes(y = Mean, x = Km), stat = "identity", fill = "grey") + 
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  xlab("check") +
+  ylab("E. coli MPN (CFU)") + 
+  scale_y_continuous(trans='log10') +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 16),
+        axis.text.x = element_text(size = 12), axis.text.y = element_text(size = 12), 
+        axis.title.x = element_text(size = 12), axis.title.y = element_text(size = 12), 
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+#r squared values
+ggplotRegression <- function(fit){
+  require(ggplot2)
+  ggplot(fit$model, aes_string(x = names(fit$model)[1], y = names(fit$model)[2])) + 
+    geom_point() +
+    stat_smooth(method = "lm", col = "gold") +
+    labs(title = paste("Adj R2 = ",signif(summary(fit)$adj.r.squared, 5),
+                       " P =",signif(summary(fit)$coef[2,4], 5))) +
+    theme_classic() +
+    xlab("Km from mouth") +
+    ylab("MPN E. coli (CFU)")
+}
+ggplotRegression(lm(Turbidity ~ E_coli_MPN, data = data))
+
+ggplotRegression(lm(Temp ~ E_coli_MPN, data = data))
+
+ggplotRegression(lm(pH ~ E_coli_MPN, data = data))
+
+ggplotRegression(lm(Km ~ Mean, data = data))
+
+#reorder sites
+data$Site <- factor(data$Site, levels = c("Ranch Bar","Cricket Hollow", "Grandstaff Run", "Britt's Run", "County Line Bridge", "Elm Grove Park", "Junior Ave", "Washington Ave", "Kroger", "Fulton", "Tunnel Green", "Mouth"))
+print(levels(data$Site))
+
+#bar graph with SE
+
+groupmeans <- data.frame(E_coli_MPN = 0, SE = 0, Site = 0, Median = 0)
+counter <- 1
+for(i in levels(data$Site)){
+  groupmeans[counter, 1] <- geometric.mean(subset(data, Site == as.character(i))$E_coli_MPN)
+  groupmeans[counter, 2] <- sd(subset(data, Site == as.character(i))$E_coli_MPN)/
+    sqrt(length(groupmeans[counter, 1] <- geometric.mean(subset(data, Site == as.character(i))$E_coli_MPN)))
+  groupmeans[counter, 4] <- median(subset(data, Site == as.character(i))$E_coli_MPN)
+  counter <- counter + 1 
+}
+groupmeans$Site <- as.vector (levels(data$Site))
+print(groupmeans$Site)
+
+groupmeans$Site <- factor(groupmeans$Site, levels = c("Ranch Bar","Cricket Hollow", "Grandstaff Run", "Britt's Run", "County Line Bridge", "Elm Grove Park", "Junior Ave", "Washington Ave", "Kroger", "Fulton", "Tunnel Green", "Mouth"))
+
+ggplot() +
+  geom_bar(data = data, aes(x = Site, y = E_coli_MPN), col = "black", fill = "grey", 
+           stat = "summary", position = position_dodge()) + 
+  geom_errorbar(data = groupmeans, aes(x = Site, ymin = E_coli_MPN - SE, ymax = E_coli_MPN + SE),
+                width = 0.25, col = "black") +
+  geom_hline(yintercept = 126, linetype = 1, col = "blue") +
+  #geom_errorbar(data = groupmeans, aes(x = Site, ymin = Median, ymax = Median), 
+                #col = "black", size = 1)+
+  xlab("Site") +
+  ylab("E. coli MPN (CFU)") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  theme(axis.text.y = element_text(size = 10))
+
+ggplot() +
+  geom_bar(data = groupmeans, aes(x = Site, y = E_coli_MPN), col = "black", fill = "grey", 
+           stat= "summary", position = position_dodge()) + 
+  geom_errorbar(data = groupmeans, aes(x = Site, ymin = 0, ymax = E_coli_MPN + SE),
+                width = 0.25, col = "black") +
+  geom_hline(yintercept = 126, linetype = 1, col = "blue") +
+  #geom_errorbar(data = groupmeans, aes(x = Site, ymin = Median, ymax = Median), 
+                #col = "black", size = 1)+
+  scale_y_continuous(breaks = c(0, 200, 400, 600, 800, 1000, 2000, 3000)) +
+  xlab("Site") +
+  ylab("E. coli MPN (CFU)") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12)) +
+  theme(axis.text.y = element_text(size = 12))
+
+# box and whisker
+
+data$Site <- factor(data$Site, levels = c("Ranch Bar","Cricket Hollow", "Grandstaff Run", "Britt's Run", "County Line Bridge", "Elm Grove Park", "Junior Ave", "Washington Ave", "Kroger", "Fulton", "Tunnel Green", "Mouth"))
+
+ggplot(data = data, aes(x = Site, y = E_coli_MPN), col = "black", fill = "grey") +
+  scale_y_continuous(trans='log') +
+  geom_boxplot() +
+   geom_hline(yintercept = 126, linetype = 1, col = "blue") +
+  xlab("Site") +
+  ylab("E. coli MPN (CFU)") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  theme(axis.text.y = element_text(size = 10))
+
+```
+
+## site graphs and data
+
+```{r site graphs}
+
+#site codes
+site1 <- subset(data, data$Site == "Ranch Bar")
+site2 <- subset(data, data$Site == "Cricket Hollow")
+site3 <- subset(data, data$Site == "Grandstaff Run")
+site4 <- subset(data, data$Site == "Britt's Run")
+site5 <- subset(data, data$Site == "County Line Bridge")
+site6 <- subset(data, data$Site == "Elm Grove Park")
+site7 <- subset(data, data$Site == "Junior Ave")
+site8 <- subset(data, data$Site == "Washington Ave")
+site9 <- subset(data, data$Site == "Kroger")
+site10 <- subset(data, data$Site == "Fulton")
+site11 <- subset(data, data$Site == "Tunnel Green")
+site12 <- subset(data, data$Site == "Mouth")
+
+mean(site1$E_coli_MPN)
+max(site1$E_coli_MPN)
+min(site1$E_coli_MPN)
+median(site1$E_coli_MPN)
+geometric.mean(site1$E_coli_MPN)
+mean(data$E_coli_MPN)
+
+#site correlations
+ggplot(data = site7, aes(y = E_coli_MPN, x = Flow_mean), stat = "identity", fill = "grey") + 
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  xlab("Turbidity") +
+  ylab("MPN") + 
+  #scale_y_continuous(trans='log10') +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 16),
+        axis.text.x = element_text(size = 12), axis.text.y = element_text(size = 12), 
+        axis.title.x = element_text(size = 12), axis.title.y = element_text(size = 12), 
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+ggplotRegression <- function(fit){
+  require(ggplot2)
+  ggplot(fit$model, aes_string(x = names(fit$model)[1], y = names(fit$model)[2])) + 
+    geom_point() +
+    stat_smooth(method = "lm", col = "gold") +
+    labs(title = paste("Adj R2 = ",signif(summary(fit)$adj.r.squared, 5),
+                       " P =",signif(summary(fit)$coef[2,4], 5))) +
+    theme_classic() +
+    xlab("Turbidity") +
+    ylab("MPN E. coli (CFU)")
+}
+ggplotRegression(lm(Turbidity ~ E_coli_MPN, data = site1))
+
+
+#barplot of site averages
+ggplot(data = site1, aes(x = Date, y = E_coli_MPN)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  geom_hline(yintercept = mean(site1$E_coli_MPN), linetype = 2) +
+  geom_hline(yintercept = 235, linetype = 1) +
+  xlab("Collection Date") +
+  ylab("MPN E. coli (CFU)") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  labs(title = site1$Site)
+
+ggplot(data = site2, aes(x = Date, y = E_coli_MPN)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  geom_hline(yintercept = mean(site2$E_coli_MPN), linetype = 2) +
+  geom_hline(yintercept = 235, linetype = 1) +
+  xlab("Collection Date") +
+  ylab("MPN E. coli (CFU)") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  labs(title = site2$Site)
+
+ggplot(data = site3, aes(x = Date, y = E_coli_MPN)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  geom_hline(yintercept = mean(site3$E_coli_MPN), linetype = 2) +
+  geom_hline(yintercept = 235, linetype = 1) +
+  xlab("Collection Date") +
+  ylab("MPN E. coli (CFU)") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  labs(title = site3$Site)
+
+ggplot(data = site4, aes(x = Date, y = E_coli_MPN)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  geom_hline(yintercept = mean(site4$E_coli_MPN), linetype = 2) +
+  geom_hline(yintercept = 235, linetype = 1) +
+  xlab("Collection Date") +
+  ylab("MPN E. coli (CFU)") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  labs(title = site4$Site)
+
+ggplot(data = site5, aes(x = Date, y = E_coli_MPN)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  geom_hline(yintercept = mean(site5$E_coli_MPN), linetype = 2) +
+  geom_hline(yintercept = 235, linetype = 1) +
+  xlab("Collection Date") +
+  ylab("MPN E. coli (CFU)") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  labs(title = site5$Site)
+
+ggplot(data = site6, aes(x = Date, y = E_coli_MPN)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  geom_hline(yintercept = mean(site6$E_coli_MPN), linetype = 2) +
+  geom_hline(yintercept = 235, linetype = 1) +
+  xlab("Collection Date") +
+  ylab("MPN E. coli (CFU)") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  labs(title = site6$Site)
+
+ggplot(data = site7, aes(x = Date, y = E_coli_MPN)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  geom_hline(yintercept = mean(site7$E_coli_MPN), linetype = 2) +
+  geom_hline(yintercept = 235, linetype = 1) +
+  xlab("Collection Date") +
+  ylab("MPN E. coli (NTU)") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  labs(title = site7$Site)
+
+ggplot(data = site8, aes(x = Date, y = E_coli_MPN)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  geom_hline(yintercept = mean(site8$E_coli_MPN), linetype = 2) +
+  geom_hline(yintercept = 235, linetype = 1) +
+  xlab("Collection Date") +
+  ylab("MPN E. coli (CFU)") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  labs(title = site8$Site)
+
+ggplot(data = site9, aes(x = Date, y = E_coli_MPN)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  geom_hline(yintercept = mean(site9$E_coli_MPN), linetype = 2) +
+  geom_hline(yintercept = 235, linetype = 1) +
+  xlab("Collection Date") +
+  ylab("MPN E. coli (CFU)") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  labs(title = site9$Site)
+
+ggplot(data = site10, aes(x = Date, y = E_coli_MPN)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  geom_hline(yintercept = mean(site10$E_coli_MPN), linetype = 2) +
+  geom_hline(yintercept = 235, linetype = 1) +
+  xlab("Collection Date") +
+  ylab("MPN E. coli (CFU)") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  labs(title = site10$Site)
+
+ggplot(data = site11, aes(x = Date, y = E_coli_MPN)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  geom_hline(yintercept = mean(site11$E_coli_MPN), linetype = 2) +
+  geom_hline(yintercept = 235, linetype = 1) +
+  xlab("Collection Date") +
+  ylab("MPN E. coli (CFU)") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  labs(title = site11$Site)
+
+ggplot(data = site12, aes(x = Date, y = E_coli_MPN)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  geom_hline(yintercept = mean(site12$E_coli_MPN), linetype = 2) +
+  geom_hline(yintercept = 235, linetype = 1) +
+  xlab("Collection Date") +
+  ylab("MPN E. coli (CFU)") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  labs(title = site12$Site)
+
+```
+
+## site tables
+
+```{r tables}
+library(knitr)
+library(kableExtra)
+kable(wheeling[1:12, 14:19], col.names = c("Site","Coordinates", "Mean", "Median", "Min", "Max"), digits = 1) %>% 
+kable_styling(bootstrap_options = c("striped", "hover"))
+
+kable(wheeling[1:12, 14:15], col.names = c("Site","Coordinates")) %>%
+kable_styling(bootstrap_options = c("striped", "hover"))
+
+kable(wheeling[1:12, 21:26], col.names = c("Site", "Turbidity (NTU)","Temperature (°C)", "DO (mg/L)", "SPC (μS)", "pH")) %>%
+kable_styling(bootstrap_options = c("striped", "hover"))
+
+kable(wheeling[1:12, 28:29], col.names = c("Site", "Percent Exceedance")) %>%
+kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+## map
+
+```{r map}
+
+register_google(key = "AIzaSyDliRRtVBUOQQQrNPl0gdY8vrp3LT77-hg")
+
+
+map_all <- get_map(location = c(lon = -80.67, lat = 40.02), zoom = 12, maptype = c('hybrid'))  
+## this sets the map area, bigger zoom number means more zoomed in
+
+## x and y are the lat and long from the center point of the map 
+## "data" is you data frame, "size" is your will be your ecoli data, you can divide the ecoli by a number to get the size right, it makes the dot smaller. My data frame is "N15_all", my values are "X15N". If you have issues, send me your data and I will see if I can get the code to work.
+## "limites" are the range in data you want to include in the map
+
+ggmap(map_all) +
+  geom_point(aes(x = lon, y = lat, size = (3), colour = Mean), data = data) + 
+  scale_colour_continuous(name = 'E. coli (CFU/100mL)', limits = c(0,1000), low = "green", high = "red", space = "Lab", guide = "colorbar") + scale_size(guide='none', breaks = c(0, 1, 2, 3))
+```
+## land use data
+```{r land use graphs}
+landuse <- read.csv("landuse.csv")
+lu <- read.csv("lu.csv")
+
+landuse$Site <- factor(landuse$Site, levels = c("Ranch Bar","Cricket Hollow", "Grandstaff Run", "Britt's Run", "County Line", "Elm Grove", "Junior Ave", "Washington", "Kroger", "Fulton", "Tunnel Green", "Mouth"))
+
+ggplot(data = landuse, aes (x = Site)) +
+  geom_bar(aes(y = Developed_Total), stat = "identity", position = position_dodge()) +
+  xlab("Site") +
+  ylab("Percent Developed") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  labs(title = "Land Use")
+
+#geom_bar(aes(y = Pasture_Hay), 
+  #         stat = "identity", position = position_dodge(), fill = "grey") +
+ # scale_y_continuous(name = "Percent Developed", sec.axis = sec_axis(name="Percent Pasture")) + 
+
+ggplot(data = landuse, aes (x = Site)) +
+  geom_bar(aes(y = Pasture_Hay), stat = "identity", position = position_dodge()) +
+  xlab("Site") +
+  ylab("Percent Pasture") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  labs(title = "Land Use")
+
+lu$Site <- factor(lu$Site, levels = c("Ranch Bar","Cricket Hollow", "Grandstaff Run", "Britt's Run", "County Line", "Elm Grove", "Junior Ave", "Washington", "Kroger", "Fulton", "Tunnel Green", "Mouth"))
+
+ggplot(data = lu, aes (x = Site)) +
+  geom_bar(aes(y = Pasture_Hay), stat = "identity", position = position_dodge()) +
+  xlab("Site") +
+  ylab("Area Pasture (km2)") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  labs(title = "Land Use")
+
+ggplot(data = lu, aes (x = Site)) +
+  geom_bar(aes(y = Developed_Total), stat = "identity", position = position_dodge()) +
+  xlab("Site") +
+  ylab("Area Developed (km2)") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  labs(title = "Land Use")
+
+ggplot(data = landuse, aes (x = Site)) +
+  geom_bar(aes(y = Developed_LMH), stat = "identity", position = position_dodge()) +
+  xlab("Site") +
+  ylab("Area Developed (km2)") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  labs(title = "Land Use")
+
+#correlations
+
+ggplotRegression <- function(fit){
+  require(ggplot2)
+  ggplot(fit$model, aes_string(x = names(fit$model)[1], y = names(fit$model)[2])) + 
+    geom_point() +
+    stat_smooth(method = "lm", col = "black") +
+    labs(title = paste("Adj R2 = ",signif(summary(fit)$adj.r.squared, 5),
+                       " P =",signif(summary(fit)$coef[2,4], 5))) +
+    theme_classic() +
+    xlab("Percent Developed (Low, Med, High Intensity)") +
+    ylab("Percent Exceedance")}
+
+ggplotRegression(lm(E_coli ~ Developed_Total, data = landuse))
+ggplotRegression(lm(Developed_LMH ~ Percent_Exceedance, data = landuse))
+ggplotRegression(lm(Developed_Total ~ Percent_Exceedance, data = landuse))
+
+ggplot(data = landuse, aes(y = Percent_Exceedance, x = Developed_Total), stat = "identity") + 
+  geom_point(size = 3, col = "blue") +
+  geom_smooth(method = 'lm', col = "blue") +
+  xlab("Percent Developed") +
+  ylab("Percent Exceedance") +
+  #labs(title = paste("Adj R2 = ",signif(summary(fit)$adj.r.squared, 5)," P =",signif(summary(fit)$coef[2,4], 5))) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 16),
+        axis.text.x = element_text(size = 12), axis.text.y = element_text(size = 12), 
+        axis.title.x = element_text(size = 12), axis.title.y = element_text(size = 12), 
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+```
+
