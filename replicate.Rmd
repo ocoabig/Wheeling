@@ -12,10 +12,10 @@ knitr::opts_chunk$set(echo = TRUE)
 if(!require(ggplot2)){install.packages("ggplot2")}
 library(ggplot2)
 library(ggmap)
-library("psych")
+library(psych)
 ```
 
-```{r loading data}
+```{r, loading data}
 ## Loading data
 rep <- read.csv("replicate.csv")
 
@@ -90,3 +90,36 @@ tukey.test <- TukeyHSD(rep.av)
 tukey.test
 
 ```
+
+
+
+James' approach 
+I don't think you really need to use geo.mean for this data set, not that is really wrong, but these are really just single time point replicates and I think the standard approach is just to get a mean.
+```{r}
+
+tapply(kroger$E_coli_MPN, kroger$Bank, mean)
+```
+
+```{r}
+krogerANOVA <- aov(E_coli_MPN ~ Bank, data=kroger)
+TukeyHSD(krogerANOVA)
+
+
+ranchANOVA <- aov(E_coli_MPN ~ Bank, data=ranch)
+TukeyHSD(ranchANOVA)
+```
+
+OK, so the results indicate that there was no significant differences between the Banks at the Ranch Site, while at Kroger, the Center and Left was were not significally different  from each other but the Right bank was signiciantly different than the Left and Center banks. 
+
+Since you only have one number for each water chemsitry metric at each sampling location for E. coli (Bank),  then we can't do an ANOVA. We can look at correlations between the average E. coli at each Bank.
+
+So apparent pattern in flow - also realize you only have three data points, not 9 at SIte (kroger or ranch). Might have some relationship at ranch, but that doesn't matter since the site are not sig.diff between banks. 
+```{r}
+plot(E_coli_MPN~Flow, data=kroger) 
+plot(E_coli_MPN~Flow, data=ranch) 
+```
+
+
+
+plot(E_coli_MPN~FLOW, data=replicate)
+
