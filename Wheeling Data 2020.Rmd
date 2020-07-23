@@ -19,7 +19,21 @@ library(ggmap)
 library("psych")          
 data <- subset(wheeling, E_coli_MPN != "NA")
 names(wheeling)
+
+# libraries for LMER modeling
+library(lme4)
+library(ggplot2)
+library(ggmap)
+library(AICcmodavg)
+library(scatterplot3d)
+library(cowplot)
+library(MuMIn)
+library(usdm)
+
 ```
+
+
+
 
 ## entire creek graphs and data
 
@@ -456,4 +470,76 @@ ggplot(data = landuse, aes(y = Percent_Exceedance, x = Developed_Total), stat = 
         panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
 ```
+
+
+How James might approach this. using Linear Mixed effects modeling of water chem parameters to predict ecoli
+
+The "complete.cases" code is removing any rows with NA's from the wheeling.a dataset. 
+```{r}
+wheeling.a<-(wheeling[,-(17:36)])
+
+wheeling.b<-wheeling.a[complete.cases(wheeling.a), ]
+
+```
+
+
+
+Here is an approach that uses VIFsteo to look for colinearity in the your predictor variables. You don't want your predictor variables to be colinear as it will mess up your model selection.
+
+OK this is great, you don't have any colinearity issues with you predictor variable. You can use "Dredge" all you want
+```{r}
+wc.VIF <- data.frame(scale(wheeling.a$SPC),
+                  scale(wheeling.a$pH),
+                  scale(wheeling.a$DO),
+                  scale(wheeling.a$Turbidity),
+                  scale(wheeling.a$Temp),
+                  scale(wheeling.a$Cl),
+                  scale(wheeling.a$Prev_rain_cm),
+                  scale(wheeling.a$Rain_cm))
+                  
+wc.VIF.a <- vifstep(wc.VIF, th = 10)
+wc.VIF.a
+
+```
+
+So I haven't messed with the pH like we talked about - I just scaled and center it.. not sure this is really right to do with pH.
+
+OK, it appears that the dredge function doesn't like that fact that you have NA in the data. This is becasue it would create some differences in the data used in the different models, resulting the models using different sets of data. 
+
+Create a subset of your data without any NA's in it, and then see if you can get this to run. All you should need to do is update the "data=" with your new data frame. 
+
+```{r}
+ e.c.wc<- lmer(E_coli_MPN ~ scale(SPC) + 
+                 scale(pH) + 
+                 scale(DO) +
+                 scale(Turbidity) +
+                 scale(Temp) +
+                 scale(Cl) +
+                 scale(Prev_rain_cm) +
+                 scale(Rain_cm) +
+                 (1 | Site), data=wheeling.b, REML = FALSE, na.action = "na.fail",
+               control = lmerControl(optCtrl = list(maxfun=20000)))
+ e.c.wc.dredge <- dredge(e.c.wc)
+ e.c.wc.AIC <- model.avg(get.models( e.c.wc.dredge, subset = TRUE))
+summary( e.c.wc.AIC)
+confint( e.c.wc.AIC)
+
+confint(lmer(E_coli_MPN~scale(Rain_cm)+(1|Site), data=wheeling.b, REML=FALSE))# the confidence interval of Rain in our model is "significantly" positive since the confidence                                                                               # intervales don't cross zero
+r.squaredGLMM(e.c.wc)# this is the r2 of your whole model
+r.squaredGLMM(lmer(E_coli_MPN~scale(Rain_cm)+(1|Site), data=wheeling.b, REML=FALSE))# the r2 of the top model
+
+
+```
+
+So we don't have much predictive ability right now at prediciting ecoli across all the sites based on the water chemistiry, but we do have some.  A next step could be assigning a grouping of either Y or N for a colun of "Rec.Season" and the we can see about using that as a fixed effect to help our model out, becasue remember, this is a asking across predicting across the whole year, and we anticpated that there would a season change. 
+
+
+
+
+
+
+
+
+
+
 
