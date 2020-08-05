@@ -3,6 +3,8 @@ title: "Wheeling Creek"
 author: "Abigail O'Connor"
 date: "3/21/2020"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -16,36 +18,115 @@ wheeling <- read.csv("Wheeling Creek Data.csv")
 if(!require(ggplot2)){install.packages("ggplot2", dependencies = TRUE)}
 library(ggplot2)
 library(ggmap)
-library("psych")          
-data <- subset(wheeling, E_coli_MPN != "NA")
-names(wheeling)
-
-# libraries for LMER modeling
+library(psych)          
+library(nlme)
 library(lme4)
-library(ggplot2)
-library(ggmap)
-library(AICcmodavg)
-library(scatterplot3d)
-library(cowplot)
-library(MuMIn)
+library(vegan)
+data <- subset(wheeling, E_coli_MPN != "NA")
+model <- subset(wheeling, na.action = "na.omit")
+new <- subset(data, Site != "Mouth")
+up <- subset(data, Site == "Ranch Bar" | Site == "Cricket Hollow" | Site == "Grandstaff Run" | Site == "Britt's Run" | Site == "County Line Bridge" | Site == "Elm Grove Park")
+down <- subset(data, Site == "Junior Ave" | Site == "Washington" | Site == "Kroger" | Site == "Fulton" | Site == "Tunnel Green")
+names(wheeling)
+head(data)
+```
+## checks
+```{r checks}
+shapiro.test(data$E_coli_MPN)
+qqnorm(data$E_coli_MPN); qqline(data$E_coli_MPN)
+
+data$log.coli <- log10(data$E_coli_MPN)
+hist(data$log.coli)
+shapiro.test(data$log.coli)
+qqnorm(data$log.coli, ylim = c(0,5)); qqline(data$log.coli)
+
+cor.test(data$E_coli_MPN, data$pH, method = "kendall")
+cor.test(data$E_coli_MPN, data$pH, method = "spearman")
+cor.test(data$E_coli_MPN, data$pH, method = "pearson")
+
+wheeling.a <- (wheeling[,-(18:37)])
+## removing NAs
+wheeling.b <- wheeling.a[complete.cases(wheeling.a),]
+
 library(usdm)
 
+wc.VIF <- data.frame(scale(data$SPC),
+                  scale(data$pH),
+                  scale(data$DO),
+                  scale(data$Turbidity),
+                  scale(data$Temp),
+                  scale(data$Cl),
+                  scale(data$Prev_rain_cm),
+                  scale(data$Rain_cm))
+                  
+wc.VIF.a <- vifstep(wc.VIF, th = 10)
+wc.VIF.a
+
+wcVIF <- data.frame(data$SPC, data$pH, data$DO, data$Turbidity, data$Temp, data$Cl, data$Prev_rain_cm, data$Rain_cm, data$Date, data$Flow_max, data$Developed_LMH)
+                  
+wcVIFa <- vifstep(wc.VIF, th = 10)
+wcVIFa
+
 ```
+## lmer
+```{r models}
+flmer <- lmer(E_coli_MPN ~  + (1 | Site), data = data)
+flmer
+
+##land use, km from mouth don't change by date
+##flow doesn't change by site
+
+confint(flmer)
+random.effects(flmer)
+
+lmer <- lmer(E_coli_MPN ~ scale(Turbidity) + scale(Temp) + scale(DO) + scale(SPC) + scale(H) + scale(Cl) + scale(Prev_rain_cm) + scale(Rain_cm) + scale(Flow_mean) + (1 | Site), data = data)
+lmer
+
+confint(lmer)
+random.effects(lmer)
+
+adonis(E_coli_MPN ~ Site, data = data)
+
+dredge <- dredge(lmer)
 
 
+e.c.wc <- lmer(E_coli_MPN ~ scale(SPC) + 
+                 scale(pH) + 
+                 scale(DO) +
+                 scale(Turbidity) +
+                 scale(Temp) +
+                 scale(Cl) +
+                 scale(Prev_rain_cm) +
+                 scale(Rain_cm) +
+                 (1 | Site), data = wheeling.b, REML = FALSE, na.action = "na.fail", control = lmerControl(optCtrl = list(maxfun=20000)))
+
+e.c.wc.dredge <- dredge(e.c.wc)
+e.c.wc.AIC <- model.avg(get.models(e.c.wc.dredge, subset = TRUE))
+summary(e.c.wc.AIC)
+confint(e.c.wc.AIC)
+confint(lmer(E_coli_MPN~scale(Rain_cm) + (1|Site), data = data, REML = FALSE))
+
+r.squaredGLMM(e.c.wc)
+# this is the r2 of your whole model
+
+r.squaredGLMM(lmer(E_coli_MPN ~ scale(Rain_cm) + (1|Site), data = data, REML=FALSE))
+# the r2 of the top model
+```
+```
 
 
 ## entire creek graphs and data
 
 ```{r creek graphs}
+
 #correlation scatter plots
 #e. coli and turbidity
-ggplot(data = data, aes(y = E_coli_MPN, x = Turbidity), stat = "identity", fill = "grey") + 
+ggplot(data = new, aes(y = E_coli_MPN, x = Turbidity), stat = "identity", fill = "grey") + 
   geom_point() +
   geom_smooth(method = 'lm') +
   xlab("Turbidity") +
   ylab("MPN") + 
-  #scale_y_continuous(trans='log10') +
+  scale_y_continuous(trans='log10') +
   theme_bw() +
   theme(plot.title = element_text(hjust = 0.5, size = 16),
         axis.text.x = element_text(size = 12), axis.text.y = element_text(size = 12), 
@@ -53,7 +134,7 @@ ggplot(data = data, aes(y = E_coli_MPN, x = Turbidity), stat = "identity", fill 
         panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
 #e. coli and rain
-ggplot(data = data, aes(y = E_coli_MPN, x = Rain_cm), stat = "identity", fill = "grey") + 
+ggplot(data = new, aes(y = E_coli_MPN, x = Rain_cm), stat = "identity", fill = "grey") + 
   geom_point() +
   geom_smooth(method = 'lm') +
   xlab("Rain") +
@@ -66,7 +147,7 @@ ggplot(data = data, aes(y = E_coli_MPN, x = Rain_cm), stat = "identity", fill = 
         panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
 #e. coli and SPC
-ggplot(data = data, aes(y = E_coli_MPN, x = Cl), stat = "identity", fill = "grey") + 
+ggplot(data = new, aes(y = E_coli_MPN, x = Cl), stat = "identity", fill = "grey") + 
   geom_point() +
   geom_smooth(method = 'lm') +
   xlab("SPC") +
@@ -78,8 +159,8 @@ ggplot(data = data, aes(y = E_coli_MPN, x = Cl), stat = "identity", fill = "grey
         axis.title.x = element_text(size = 12), axis.title.y = element_text(size = 12), 
         panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
-#e. coli and flow
-ggplot(data = data, aes(y = Mean, x = Km), stat = "identity", fill = "grey") + 
+#e. coli and Km
+ggplot(data = new, aes(y = Mean, x = Km), stat = "identity", fill = "grey") + 
   geom_point() +
   geom_smooth(method = 'lm') +
   xlab("check") +
@@ -96,20 +177,36 @@ ggplotRegression <- function(fit){
   require(ggplot2)
   ggplot(fit$model, aes_string(x = names(fit$model)[1], y = names(fit$model)[2])) + 
     geom_point() +
-    stat_smooth(method = "lm", col = "gold") +
+    stat_smooth(method = "lm") +
     labs(title = paste("Adj R2 = ",signif(summary(fit)$adj.r.squared, 5),
                        " P =",signif(summary(fit)$coef[2,4], 5))) +
     theme_classic() +
-    xlab("Km from mouth") +
-    ylab("MPN E. coli (CFU)")
+    xlab("check") +
+    ylab("check")
 }
-ggplotRegression(lm(Turbidity ~ E_coli_MPN, data = data))
+ggplotRegression(lm(Turbidity ~ E_coli_MPN, data = new))
 
-ggplotRegression(lm(Temp ~ E_coli_MPN, data = data))
+ggplotRegression(lm(Temp ~ E_coli_MPN, data = new))
 
-ggplotRegression(lm(pH ~ E_coli_MPN, data = data))
+ggplotRegression(lm(pH ~ E_coli_MPN, data = new))
 
-ggplotRegression(lm(Km ~ Mean, data = data))
+ggplotRegression(lm(Flow_mean ~ E_coli_MPN, data = new))
+
+ggplotRegression(lm(Developed_LMH ~ Mean, data = wheeling))
+
+ggplotRegression(lm(Developed_LMH ~ Turb_mean, data = wheeling))
+ggplotRegression(lm(Developed_LMH ~ Mean, data = wheeling))
+ggplotRegression(lm(Developed_LMH ~ Temp_mean, data = wheeling))
+ggplotRegression(lm(Developed_LMH ~ DO_mean, data = wheeling))
+ggplotRegression(lm(Developed_LMH ~ pH_mean, data = wheeling))
+
+ggplotRegression(lm(Km ~ Turb_mean, data = wheeling))
+ggplotRegression(lm(Km ~ Mean, data = wheeling))
+ggplotRegression(lm(Km ~ Temp_mean, data = wheeling))
+ggplotRegression(lm(Km ~ DO_mean, data = wheeling))
+ggplotRegression(lm(Km ~ pH_mean, data = wheeling))
+
+print(wheeling$Km)
 
 #reorder sites
 data$Site <- factor(data$Site, levels = c("Ranch Bar","Cricket Hollow", "Grandstaff Run", "Britt's Run", "County Line Bridge", "Elm Grove Park", "Junior Ave", "Washington Ave", "Kroger", "Fulton", "Tunnel Green", "Mouth"))
@@ -151,28 +248,49 @@ ggplot() +
   geom_errorbar(data = groupmeans, aes(x = Site, ymin = 0, ymax = E_coli_MPN + SE),
                 width = 0.25, col = "black") +
   geom_hline(yintercept = 126, linetype = 1, col = "blue") +
-  #geom_errorbar(data = groupmeans, aes(x = Site, ymin = Median, ymax = Median), 
-                #col = "black", size = 1)+
+  #geom_errorbar(data = groupmeans, aes(x = Site, ymin = Median, ymax = Median), col = "black", size = 1) +
   scale_y_continuous(breaks = c(0, 200, 400, 600, 800, 1000, 2000, 3000)) +
   xlab("Site") +
   ylab("E. coli MPN (CFU)") +
   theme_classic() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12)) +
   theme(axis.text.y = element_text(size = 12))
+  ```
 
 # box and whisker
 
 data$Site <- factor(data$Site, levels = c("Ranch Bar","Cricket Hollow", "Grandstaff Run", "Britt's Run", "County Line Bridge", "Elm Grove Park", "Junior Ave", "Washington Ave", "Kroger", "Fulton", "Tunnel Green", "Mouth"))
 
 ggplot(data = data, aes(x = Site, y = E_coli_MPN), col = "black", fill = "grey") +
-  scale_y_continuous(trans='log') +
+  #scale_y_continuous(trans='log10') +
   geom_boxplot() +
-   geom_hline(yintercept = 126, linetype = 1, col = "blue") +
+  #geom_hline(yintercept = 126, linetype = 1, col = "blue") +
   xlab("Site") +
   ylab("E. coli MPN (CFU)") +
   theme_classic() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
   theme(axis.text.y = element_text(size = 10))
+
+ggplot(data = data, aes(x = Date, y = E_coli_MPN, color = Site, group = Site)) +
+  geom_point() +
+  #geom_hline(yintercept = 235, linetype = 1) +
+  geom_line()+
+  xlab("Collection Date") +
+  ylab("MPN E. coli (CFU)") +
+  scale_y_continuous(trans='log10') +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  labs(title = "Seasonal")
+
+ggplot(data = data, aes(x = Date, y = E_coli_MPN)) +
+  geom_boxplot() +
+  geom_hline(yintercept = 235, linetype = 1) +
+  xlab("Collection Date") +
+  ylab("MPN E. coli (CFU)") +
+  scale_y_continuous(trans='log10') +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  labs(title = "Seasonal")
 
 ```
 
@@ -202,7 +320,7 @@ geometric.mean(site1$E_coli_MPN)
 mean(data$E_coli_MPN)
 
 #site correlations
-ggplot(data = site7, aes(y = E_coli_MPN, x = Flow_mean), stat = "identity", fill = "grey") + 
+ggplot(data = site8, aes(y = E_coli_MPN, x = Rain_cm), stat = "identity", fill = "grey") + 
   geom_point() +
   geom_smooth(method = 'lm') +
   xlab("Turbidity") +
@@ -375,7 +493,6 @@ kable_styling(bootstrap_options = c("striped", "hover"))
 
 register_google(key = "AIzaSyDliRRtVBUOQQQrNPl0gdY8vrp3LT77-hg")
 
-
 map_all <- get_map(location = c(lon = -80.67, lat = 40.02), zoom = 12, maptype = c('hybrid'))  
 ## this sets the map area, bigger zoom number means more zoomed in
 
@@ -384,7 +501,7 @@ map_all <- get_map(location = c(lon = -80.67, lat = 40.02), zoom = 12, maptype =
 ## "limites" are the range in data you want to include in the map
 
 ggmap(map_all) +
-  geom_point(aes(x = lon, y = lat, size = (3), colour = Mean), data = data) + 
+  geom_point(aes(x = lon, y = lat, size = (30), colour = Mean), data = wheeling) + 
   scale_colour_continuous(name = 'E. coli (CFU/100mL)', limits = c(0,1000), low = "green", high = "red", space = "Lab", guide = "colorbar") + scale_size(guide='none', breaks = c(0, 1, 2, 3))
 ```
 ## land use data
@@ -470,76 +587,5 @@ ggplot(data = landuse, aes(y = Percent_Exceedance, x = Developed_Total), stat = 
         panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
 ```
-
-
-How James might approach this. using Linear Mixed effects modeling of water chem parameters to predict ecoli
-
-The "complete.cases" code is removing any rows with NA's from the wheeling.a dataset. 
-```{r}
-wheeling.a<-(wheeling[,-(17:36)])
-
-wheeling.b<-wheeling.a[complete.cases(wheeling.a), ]
-
-```
-
-
-
-Here is an approach that uses VIFsteo to look for colinearity in the your predictor variables. You don't want your predictor variables to be colinear as it will mess up your model selection.
-
-OK this is great, you don't have any colinearity issues with you predictor variable. You can use "Dredge" all you want
-```{r}
-wc.VIF <- data.frame(scale(wheeling.a$SPC),
-                  scale(wheeling.a$pH),
-                  scale(wheeling.a$DO),
-                  scale(wheeling.a$Turbidity),
-                  scale(wheeling.a$Temp),
-                  scale(wheeling.a$Cl),
-                  scale(wheeling.a$Prev_rain_cm),
-                  scale(wheeling.a$Rain_cm))
-                  
-wc.VIF.a <- vifstep(wc.VIF, th = 10)
-wc.VIF.a
-
-```
-
-So I haven't messed with the pH like we talked about - I just scaled and center it.. not sure this is really right to do with pH.
-
-OK, it appears that the dredge function doesn't like that fact that you have NA in the data. This is becasue it would create some differences in the data used in the different models, resulting the models using different sets of data. 
-
-Create a subset of your data without any NA's in it, and then see if you can get this to run. All you should need to do is update the "data=" with your new data frame. 
-
-```{r}
- e.c.wc<- lmer(E_coli_MPN ~ scale(SPC) + 
-                 scale(pH) + 
-                 scale(DO) +
-                 scale(Turbidity) +
-                 scale(Temp) +
-                 scale(Cl) +
-                 scale(Prev_rain_cm) +
-                 scale(Rain_cm) +
-                 (1 | Site), data=wheeling.b, REML = FALSE, na.action = "na.fail",
-               control = lmerControl(optCtrl = list(maxfun=20000)))
- e.c.wc.dredge <- dredge(e.c.wc)
- e.c.wc.AIC <- model.avg(get.models( e.c.wc.dredge, subset = TRUE))
-summary( e.c.wc.AIC)
-confint( e.c.wc.AIC)
-
-confint(lmer(E_coli_MPN~scale(Rain_cm)+(1|Site), data=wheeling.b, REML=FALSE))# the confidence interval of Rain in our model is "significantly" positive since the confidence                                                                               # intervales don't cross zero
-r.squaredGLMM(e.c.wc)# this is the r2 of your whole model
-r.squaredGLMM(lmer(E_coli_MPN~scale(Rain_cm)+(1|Site), data=wheeling.b, REML=FALSE))# the r2 of the top model
-
-
-```
-
-So we don't have much predictive ability right now at prediciting ecoli across all the sites based on the water chemistiry, but we do have some.  A next step could be assigning a grouping of either Y or N for a colun of "Rec.Season" and the we can see about using that as a fixed effect to help our model out, becasue remember, this is a asking across predicting across the whole year, and we anticpated that there would a season change. 
-
-
-
-
-
-
-
-
-
 
 
