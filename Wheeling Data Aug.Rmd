@@ -22,6 +22,8 @@ library(psych)
 library(nlme)
 library(lme4)
 library(vegan)
+library(MuMIn)
+library(AICcmodavg)
 data <- subset(wheeling, E_coli_MPN != "NA")
 model <- subset(wheeling, na.action = "na.omit")
 new <- subset(data, Site != "Mouth")
@@ -589,3 +591,99 @@ ggplot(data = landuse, aes(y = Percent_Exceedance, x = Developed_Total), stat = 
 ```
 
 
+
+Ecoli
+```{r}
+Ecoli<-list()
+Ecoli[[1]]  <- lmer( E_coli_MPN~ (1 | Site), data=Wheeling_Creek_Data, REML = FALSE)
+
+Ecoli[[2]]  <- lmer( E_coli_MPN ~ (1|Date)+ (1 | Site), data=Wheeling_Creek_Data, REML = FALSE)
+
+Ecoli[[3]]  <- lmer( E_coli_MPN ~ scale(Flow_mean)+ (1|Date) + (1| Site), data=Wheeling_Creek_Data, REML = FALSE)
+
+
+Ecoli[[4]]  <- lmer( E_coli_MPN ~ scale(Rain_cm)+ scale(Flow_mean) + (1|Date) + (1| Site), data=Wheeling_Creek_Data, REML = FALSE)
+
+Ecoli[[5]]  <- lmer( E_coli_MPN ~ scale(Prev_rain_cm)+ scale(Flow_mean) + (1|Date) + (1| Site), data=Wheeling_Creek_Data, REML = FALSE)
+
+Ecoli[[6]]  <- lmer( E_coli_MPN ~ scale(Turbidity)+ scale(Flow_mean) + (1|Date) + (1| Site), data=Wheeling_Creek_Data, REML = FALSE)
+
+Ecoli[[7]]  <- lmer( E_coli_MPN ~ scale(Rain_cm)+ scale(Flow_max) + (1|Date) + (1| Site), data=Wheeling_Creek_Data, REML = FALSE)
+
+Ecoli[[8]]  <- lmer( E_coli_MPN ~ scale(Rain_cm)+ scale(Flow_min) + (1|Date) + (1| Site), data=Wheeling_Creek_Data, REML = FALSE)
+
+Ecoli[[9]]  <- lmer( E_coli_MPN ~ scale(Prev_rain_cm)+ scale(Flow_max) + (1| Site), data=Wheeling_Creek_Data, REML = FALSE)
+
+Ecoli[[10]]  <- lmer( E_coli_MPN ~ scale(Rain_cm)+ scale(Flow_min) + scale(Temp) + (1| Site), data=Wheeling_Creek_Data, REML = FALSE)
+
+Ecoli[[11]]  <- lmer( E_coli_MPN ~  scale(Flow_mean)+ scale(Temp) + (1| Site), data=Wheeling_Creek_Data, REML = FALSE)
+
+Ecoli[[12]]  <- lmer( E_coli_MPN ~  scale(Flow_min)  + (1|Date) + (1| Site), data=Wheeling_Creek_Data, REML = FALSE)
+
+Ecoli[[13]]  <- lmer( E_coli_MPN ~  scale(Flow_max) + (1| Site), data=Wheeling_Creek_Data, REML = FALSE)
+
+Ecoli[[14]]  <- lmer( E_coli_MPN ~  scale(Rain_cm) + (1| Site), data=Wheeling_Creek_Data, REML = FALSE)
+
+Ecoli[[15]]  <- lmer( E_coli_MPN ~  scale(Rain_cm) + scale(Prev_rain_cm)+ (1| Site), data=Wheeling_Creek_Data, REML = FALSE)
+
+Ecoli[[16]]  <- lmer( E_coli_MPN ~ scale(Flow_min) + scale(Temp)+(1| Site), data=Wheeling_Creek_Data, REML = FALSE)
+
+Ecoli[[17]]  <- lmer( E_coli_MPN ~ scale(Flow_mean) + scale(Flow_max) + scale(Flow_min)+ (1| Site), data=Wheeling_Creek_Data, REML = FALSE)
+
+Ecoli[[18]]  <- lmer( E_coli_MPN ~ scale(Temp)+ scale(Rain_cm)+ scale(Flow_min) + (1| Site), data=Wheeling_Creek_Data, REML = FALSE)
+
+Ecoli[[19]]  <- lmer( E_coli_MPN ~ scale(Prev_rain_cm)+ scale(Flow_min) + (1|Date) + (1| Site), data=Wheeling_Creek_Data, REML = FALSE)
+
+Ecoli[[20]]  <- lmer( E_coli_MPN ~ scale(Prev_rain_cm) + (1|Date) + (1| Site), data=Wheeling_Creek_Data, REML = FALSE)
+
+Ecoli[[21]]  <- lmer( E_coli_MPN ~ scale(Prev_rain_cm)  + (1| Site), data=Wheeling_Creek_Data, REML = FALSE)
+
+Ecoli[[22]]  <- lmer( E_coli_MPN ~ scale(Cl)  + (1| Site), data=Wheeling_Creek_Data, REML = FALSE)
+
+Ecoli[[22]]  <- lmer( E_coli_MPN ~ scale(Max_Min)  + (1| Site), data=Wheeling_Creek_Data, REML = FALSE)
+
+
+## Creating a vector of names to trace back models in set
+ModnamesEcoli <- paste("model", 1:length(Ecoli), sep = " ")
+
+##generate AICc table from candidate models so that you can control the model
+aictab(cand.set = Ecoli, modnames = ModnamesEcoli, sort = TRUE)
+
+
+r.squaredGLMM(Ecoli[[21]])
+
+```
+
+
+Making plots of E.coli vs flow for each site.
+
+If you look at the graphs they are pretty interesting. For the more upstream sites, it looks like when flow is below 2000 cfs the amount of E.coli is pretty stable, but when flow increaes to around 2000 the numbers tend to increase. 
+
+In the more downstream sites, numbers are all over the place. 
+```{r}
+plot(site1$E_coli_MPN~site1$Flow_max, ylim=c(0,1400))
+
+plot(site2$E_coli_MPN~site1$Flow_max,  ylim=c(0,1400))
+
+
+plot(site3$E_coli_MPN~site3$Flow_max)
+
+plot(site4$E_coli_MPN~site4$Flow_max)
+
+plot(site5$E_coli_MPN~site5$Flow_max)
+
+plot(site6$E_coli_MPN~site6$Flow_max)
+
+plot(site7$E_coli_MPN~site7$Flow_max)
+
+plot(site8$E_coli_MPN~site8$Flow_max)
+
+plot(site9$E_coli_MPN~site9$Flow_max)
+
+plot(site10$E_coli_MPN~site10$Flow_max)
+
+plot(site11$E_coli_MPN~site11$Flow_max)
+
+plot(site12$E_coli_MPN~site12$Flow_max)
+
+```
