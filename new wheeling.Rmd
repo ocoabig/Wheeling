@@ -1,0 +1,325 @@
+---
+title: "new wheeling"
+author: "Abigail O'Connor"
+date: "8/31/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+
+```{r setup}
+wheeling <- read.csv("Wheeling Creek Data - Copy.csv")
+if(!require(ggplot2)){install.packages("ggplot2")}
+library(dplyr)
+library(ggplot2)
+library(heatwaveR)
+library(knitr)
+library(kableExtra)
+
+
+
+print(wheeling)
+
+```
+
+```{r percent exceedance}
+
+# Calculate exceedence
+ranch <- subset(wheeling, wheeling$Site == "Ranch Bar")
+ranchex <- length(subset(ranch, E_coli_MPN > 235)$E_coli_MPN) / length(subset(ranch, E_coli_MPN > 0)$E_coli_MPN) *100
+ranchex
+
+cricket <- subset(wheeling, wheeling$Site == "Cricket Hollow")
+cricketex <- length(subset(cricket, E_coli_MPN > 235)$E_coli_MPN) / length(subset(cricket, E_coli_MPN >0)$E_coli_MPN) *100
+cricketex
+
+grandstaff <- subset(wheeling, wheeling$Site == "Grandstaff Run")
+grandstaffex <- length(subset(grandstaff, E_coli_MPN > 235)$E_coli_MPN) / length(subset(grandstaff, E_coli_MPN > 0)$E_coli_MPN) *100
+grandstaffex
+
+britt <- subset(wheeling, wheeling$Site == "Britt's Run")
+brittex <- length(subset(britt, E_coli_MPN > 235)$E_coli_MPN) / length(subset(britt, E_coli_MPN > 0)$E_coli_MPN) *100
+brittex
+
+county <- subset(wheeling, wheeling$Site == "County Line Bridge")
+countyex <- length(subset(county, E_coli_MPN > 235)$E_coli_MPN) / length(subset(cricket, E_coli_MPN > 0)$E_coli_MPN) *100
+countyex
+
+elm <- subset(wheeling, wheeling$Site == "Elm Grove Park")
+elmex <- length(subset(elm, E_coli_MPN > 235)$E_coli_MPN) / length(subset(elm, E_coli_MPN > 0)$E_coli_MPN) *100
+elmex
+
+jr <- subset(wheeling, wheeling$Site == "Junior Ave")
+jrex <- length(subset(jr, E_coli_MPN > 235)$E_coli_MPN) / length(subset(jr, E_coli_MPN > 0)$E_coli_MPN) *100
+jrex
+
+wash <- subset(wheeling, wheeling$Site == "Washington Ave")
+washex <- length(subset(wash, E_coli_MPN > 235)$E_coli_MPN) / length(subset(wash, E_coli_MPN > 0)$E_coli_MPN) *100
+washex
+
+kroger <- subset(wheeling, wheeling$Site == "Kroger")
+krogerex <- length(subset(kroger, E_coli_MPN > 235)$E_coli_MPN) / length(subset(kroger, E_coli_MPN > 0)$E_coli_MPN) *100
+krogerex
+
+fulton <- subset(wheeling, wheeling$Site == "Fulton")
+fultonex <- length(subset(fulton, E_coli_MPN > 235)$E_coli_MPN) / length(subset(fulton, E_coli_MPN > 0)$E_coli_MPN) *100
+fultonex
+
+tunnel <- subset(wheeling, wheeling$Site == "Tunnel Green")
+tunnelex <- length(subset(tunnel, E_coli_MPN > 235)$E_coli_MPN) / length(subset(tunnel, E_coli_MPN > 0)$E_coli_MPN) *100
+tunnelex
+
+mouth <- subset(wheeling, wheeling$Site == "Mouth")
+mouthex <- length(subset(mouth, E_coli_MPN > 235)$E_coli_MPN) / length(subset(mouth, E_coli_MPN > 0)$E_coli_MPN) *100
+mouthex
+
+ranchex
+cricketex
+brittex
+grandstaffex
+countyex
+elmex
+jrex
+washex
+krogerex
+fultonex
+tunnelex
+mouthex
+
+```
+
+```{r tables}
+#E. coli table
+
+kable(wheeling[1:12, 30:36], col.names = c("Site","Coordinates", "Mean", "Median", "Min", "Max", "% Exceedance"), digits = 1) %>% 
+kable_styling(bootstrap_options = c("striped", "hover"))
+
+kable(wheeling[1:12, 38:43], col.names = c("Site", "Turbidity (NTU)","Temperature (°C)", "DO (mg/L)", "SPC (μS)", "pH")) %>%
+kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+```{r model}
+
+wheeling.a <- (wheeling[,-(26:50)])
+wheeling.b <- wheeling.a[complete.cases(wheeling.a),]
+
+glm <- glm(E_coli_MPN ~ Prev_site, data = wheeling, family = "gaussian")
+
+confint(glm)
+print(glm)
+
+glm <- glm(E_coli_MPN ~ Prev_week, data = wheeling, family = "gaussian")
+
+confint(glm)
+print(glm)
+
+lmer <- lmer(E_coli_MPN ~ scale(Turbidity) + 
+               scale(Temp) + 
+               scale(DO) + 
+               scale(SPC) + 
+               scale(H) + 
+               scale(Cl) + 
+               scale(Prev_rain_cm) + 
+               scale(Rain_cm) + 
+               scale(Flow_mean) +
+               scale(Developed_LMH) +
+               (1| Site),
+             data = wheeling.b, REML = FALSE, na.action = "na.fail", control = lmerControl(optCtrl = list(maxfun=20000)))
+lmer
+
+confint(lmer)
+random.effects(lmer)
+
+adonis(E_coli_MPN ~ Site, data = wheeling)
+
+dredge <- dredge(lmer)
+
+
+r.squaredGLMM(lmer)
+# this is the r2 of your whole model
+
+r.squaredGLMM(lmer(E_coli_MPN ~ scale(Rain_cm) + (1|Site), data = data, REML=FALSE))
+# the r2 of the top model
+```
+
+```{r stats}
+ggplot(data = wheeling, aes(y = E_coli_MPN, x = Cl), stat = "identity", fill = "grey") + 
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  xlab("check") +
+  ylab("MPN") + 
+  scale_y_continuous(trans='log10') +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 16),
+        axis.text.x = element_text(size = 12), axis.text.y = element_text(size = 12), 
+        axis.title.x = element_text(size = 12), axis.title.y = element_text(size = 12), 
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+ggplot(data = wheeling, aes(y = wash$E_coli_MPN, x = kroger$E_coli_MPN), stat = "identity", fill = "grey") +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  xlab("check") +
+  ylab("MPN") + 
+  scale_y_continuous(trans='log10') +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 16),
+        axis.text.x = element_text(size = 12), axis.text.y = element_text(size = 12), 
+        axis.title.x = element_text(size = 12), axis.title.y = element_text(size = 12), 
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+```
+
+```{r box and whisker}
+
+ggplot(data = ranch, aes(x = Season, y = E_coli_MPN), col = "black", fill = "grey") +
+  #scale_y_continuous(trans='log10') +
+  geom_boxplot() +
+  geom_hline(yintercept = 126, linetype = 1, col = "blue") +
+  xlab("Season") +
+  ylab("E. coli MPN (CFU)") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  theme(axis.text.y = element_text(size = 10))+
+  labs(title = "Ranch Bar")
+
+ggplot(data = cricket, aes(x = Season, y = E_coli_MPN), col = "black", fill = "grey") +
+  #scale_y_continuous(trans='log10') +
+  geom_boxplot() +
+  geom_hline(yintercept = 126, linetype = 1, col = "blue") +
+  xlab("Season") +
+  ylab("E. coli MPN (CFU)") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  theme(axis.text.y = element_text(size = 10))+
+  labs(title = "Cricket Hollow")
+
+ggplot(data = grandstaff, aes(x = Season, y = E_coli_MPN), col = "black", fill = "grey") +
+  #scale_y_continuous(trans='log10') +
+  geom_boxplot() +
+  geom_hline(yintercept = 126, linetype = 1, col = "blue") +
+  xlab("Season") +
+  ylab("E. coli MPN (CFU)") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  theme(axis.text.y = element_text(size = 10)) +
+  labs(title = "Grandstaff Run")
+
+ggplot(data = britt, aes(x = Season, y = E_coli_MPN), col = "black", fill = "grey") +
+  #scale_y_continuous(trans='log10') +
+  geom_boxplot() +
+  geom_hline(yintercept = 126, linetype = 1, col = "blue") +
+  xlab("Season") +
+  ylab("E. coli MPN (CFU)") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  theme(axis.text.y = element_text(size = 10))+
+  labs(title = "Britt's Run")
+
+ggplot(data = county, aes(x = Season, y = E_coli_MPN), col = "black", fill = "grey") +
+  #scale_y_continuous(trans='log10') +
+  geom_boxplot() +
+  geom_hline(yintercept = 126, linetype = 1, col = "blue") +
+  xlab("Season") +
+  ylab("E. coli MPN (CFU)") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  theme(axis.text.y = element_text(size = 10))+
+  labs(title = "County Line Bridge")
+
+ggplot(data = elm, aes(x = Season, y = E_coli_MPN), col = "black", fill = "grey") +
+  #scale_y_continuous(trans='log10') +
+  geom_boxplot() +
+  geom_hline(yintercept = 126, linetype = 1, col = "blue") +
+  xlab("Season") +
+  ylab("E. coli MPN (CFU)") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  theme(axis.text.y = element_text(size = 10))+
+  labs(title = "Elm Grove Park")
+
+ggplot(data = jr, aes(x = Season, y = E_coli_MPN), col = "black", fill = "grey") +
+  #scale_y_continuous(trans='log10') +
+  geom_boxplot() +
+  geom_hline(yintercept = 126, linetype = 1, col = "blue") +
+  xlab("Season") +
+  ylab("E. coli MPN (CFU)") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  theme(axis.text.y = element_text(size = 10))+
+  labs(title = "Junior Ave")
+
+ggplot(data = wash, aes(x = Season, y = E_coli_MPN), col = "black", fill = "grey") +
+  #scale_y_continuous(trans='log10') +
+  geom_boxplot() +
+  geom_hline(yintercept = 126, linetype = 1, col = "blue") +
+  xlab("Season") +
+  ylab("E. coli MPN (CFU)") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  theme(axis.text.y = element_text(size = 10)) +
+  labs(title = "Washington Ave")
+
+ggplot(data = kroger, aes(x = Season, y = E_coli_MPN), col = "black", fill = "grey") +
+  #scale_y_continuous(trans='log10') +
+  geom_boxplot() +
+  geom_hline(yintercept = 126, linetype = 1, col = "blue") +
+  xlab("Season") +
+  ylab("E. coli MPN (CFU)") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  theme(axis.text.y = element_text(size = 10))+
+  labs(title = "Kroger")
+
+ggplot(data = fulton, aes(x = Season, y = E_coli_MPN), col = "black", fill = "grey") +
+  #scale_y_continuous(trans='log10') +
+  geom_boxplot() +
+  geom_hline(yintercept = 126, linetype = 1, col = "blue") +
+  xlab("Season") +
+  ylab("E. coli MPN (CFU)") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  theme(axis.text.y = element_text(size = 10))+
+  labs(title = "Fulton")
+
+ggplot(data = tunnel, aes(x = Season, y = E_coli_MPN), col = "black", fill = "grey") +
+  #scale_y_continuous(trans='log10') +
+  geom_boxplot() +
+  geom_hline(yintercept = 126, linetype = 1, col = "blue") +
+  xlab("Season") +
+  ylab("E. coli MPN (CFU)") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  theme(axis.text.y = element_text(size = 10))+
+  labs(title = "Tunnel Green")
+
+ggplot(data = mouth, aes(x = Season, y = E_coli_MPN), col = "black", fill = "grey") +
+  #scale_y_continuous(trans='log10') +
+  geom_boxplot() +
+  geom_hline(yintercept = 126, linetype = 1, col = "blue") +
+  xlab("Season") +
+  ylab("E. coli MPN (CFU)") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  theme(axis.text.y = element_text(size = 10)) +
+  labs(title = "Mouth")
+
+wheeling$Season <- factor(wheeling$Season, levels = c("Non-rec", "Rec"))
+
+ggplot(data = wheeling, aes(x = Season, y = E_coli_MPN), col = "black", fill = "grey") +
+  scale_y_continuous(trans='log10') +
+  geom_boxplot() +
+  geom_hline(yintercept = 126, linetype = 1, col = "blue") +
+  xlab("Season") +
+  ylab("E. coli MPN (CFU)") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  theme(axis.text.y = element_text(size = 10)) +
+  labs(title = "Wheeling Creek")
+
+```
