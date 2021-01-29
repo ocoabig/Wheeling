@@ -1,0 +1,933 @@
+---
+title: "site by site"
+author: "Abigail O'Connor"
+date: "10/5/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#tmp <- installed.packages()
+#installedpkgs <- as.vector(tmp[is.na(tmp[,"Priority"]), 1])
+#save(installedpkgs, file="installed_old.rda")
+
+#tmp <- installed.packages()
+#installedpkgs.new <- as.vector(tmp[is.na(tmp[,"Priority"]), 1])
+#missing <- setdiff(installedpkgs, installedpkgs.new)
+#install.packages(missing)
+#update.packages()
+```
+
+##setup
+```{r library}
+Wheeling_Creek_Data_Copy <- read.csv(file.choose(), stringsAsFactors = TRUE)
+#sites <- read.csv(file.choose(), stringsAsFactors = TRUE)
+library(usdm)
+library(ggplot2)
+library(ggmap)
+library(psych)          
+library(nlme)
+library(lme4)
+library(MuMIn)
+library(AICcmodavg)
+library(MASS)
+library(pedometrics)
+library(car)
+library(tidyverse)
+library(ggpubr)
+library(rstatix)
+```
+
+```{r}
+WCD <- Wheeling_Creek_Data_Copy[c(1:444),c(1:10,12:14,20:24)]
+WC <- Wheeling_Creek_Data_Copy
+RB <- subset(Wheeling_Creek_Data_Copy, Wheeling_Creek_Data_Copy$Site == "Ranch Bar")
+CH <- subset(Wheeling_Creek_Data_Copy, Wheeling_Creek_Data_Copy$Site == "Cricket Hollow")
+GR <- subset(Wheeling_Creek_Data_Copy, Wheeling_Creek_Data_Copy$Site == "Grandstaff Run")
+BR <- subset(Wheeling_Creek_Data_Copy, Wheeling_Creek_Data_Copy$Site == "Britt's Run")
+CL <- subset(Wheeling_Creek_Data_Copy, Wheeling_Creek_Data_Copy$Site == "County Line Bridge")
+EG <- subset(Wheeling_Creek_Data_Copy, Wheeling_Creek_Data_Copy$Site == "Elm Grove Park")
+JR <- subset(Wheeling_Creek_Data_Copy, Wheeling_Creek_Data_Copy$Site == "Junior Ave")
+WA <- subset(Wheeling_Creek_Data_Copy, Wheeling_Creek_Data_Copy$Site == "Washington Ave")
+KR <- subset(Wheeling_Creek_Data_Copy, Wheeling_Creek_Data_Copy$Site == "Kroger")
+FN <- subset(Wheeling_Creek_Data_Copy, Wheeling_Creek_Data_Copy$Site == "Fulton")
+TG <- subset(Wheeling_Creek_Data_Copy, Wheeling_Creek_Data_Copy$Site == "Tunnel Green")
+MH <- subset(Wheeling_Creek_Data_Copy, Wheeling_Creek_Data_Copy$Site == "Mouth")
+
+```
+
+##VIF
+```{r}
+
+RB[complete.cases(RB), ]
+# Keep only the complete rows
+RB1 <- RB[complete.cases(RB), ] # Store the complete cases subset in a new data frame
+
+predictors <- KR[ ,5:12]
+cor(predictors)
+pairs(predictors)
+
+ggplot(data = RB, aes(y = SPC, x = Cl), stat = "identity", fill = "grey") + 
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  xlab("Cl") +
+  ylab("SPC") + 
+  theme_bw() 
+
+ggplotRegression <- function(fit){
+  require(ggplot2)
+  ggplot(fit$model, aes_string(x = names(fit$model)[1], y = names(fit$model)[2])) + 
+    geom_point() +
+    stat_smooth(method = "lm") +
+    labs(title = paste("Adj R2 = ",signif(summary(fit)$adj.r.squared, 5),
+                       " P =",signif(summary(fit)$coef[2,4], 5))) +
+    theme_classic() +
+    xlab("SPC") +
+    ylab("Cl")
+}
+ggplotRegression(lm(SPC ~ Cl, data = RB))
+
+
+RBVIF <- data.frame(RB$SPC, RB$H, RB$Turbidity, RB$Temp, RB$Rain, RB$Flow_max, RB$Prev_date)
+
+RBstep <- vifstep(RBVIF, th = 10)
+RBstep
+
+CHVIF <- data.frame(CH$SPC, CH$H, CH$Turbidity, CH$Temp, CH$Rain, CH$Flow_max, CH$Prev_date, CH$Prev_site)
+
+CHstep <- vifstep(CHVIF, th = 10)
+CHstep
+
+GRVIF <- data.frame(GR$SPC, GR$H, GR$Turbidity, GR$Temp, GR$Rain, GR$Prev_date, GR$Flow_max, GR$Prev_site)
+
+GRstep <- vifstep(GRVIF, th = 10)
+GRstep
+
+BRVIF <- data.frame(BR$SPC, BR$H, BR$Turbidity, BR$Temp, BR$Rain, BR$Flow_max, BR$Prev_date, BR$Prev_site)
+
+BRstep <- vifstep(BRVIF, th = 10)
+BRstep
+
+CLVIF <- data.frame(CL$SPC, CL$H, CL$Turbidity, CL$Temp, CL$Rain, CL$Flow_max, CL$Prev_date, CL$Prev_site)
+
+CLstep <- vifstep(CLVIF, th = 10)
+CLstep
+
+EGVIF <- data.frame(EG$SPC, EG$H, EG$Turbidity, EG$Temp, EG$Rain, EG$Flow_max, EG$Prev_date, EG$Prev_site)
+
+EGstep <- vifstep(EGVIF, th = 10)
+EGstep
+
+JRVIF <- data.frame(JR$SPC, JR$H, JR$Turbidity, JR$Temp, JR$Rain, JR$Flow_max, JR$Prev_date, JR$Prev_site)
+
+JRstep <- vifstep(JRVIF, th = 10)
+JRstep
+
+WAVIF <- data.frame(WA$SPC, WA$H, WA$Turbidity, WA$Temp, WA$Rain, WA$Flow_max, WA$Prev_date, WA$Prev_site)
+
+WAstep <- vifstep(WAVIF, th = 10)
+WAstep
+
+KRVIF <- data.frame(KR$SPC, KR$H, KR$Turbidity, KR$Temp, KR$Rain, KR$Flow_max, KR$Prev_date, KR$Prev_site)
+
+KRstep <- vifstep(KRVIF, th = 10)
+KRstep
+
+FNVIF <- data.frame(FN$SPC, FN$H, FN$Turbidity, FN$Temp, FN$Rain, FN$Flow_max, FN$Prev_date, FN$Prev_site)
+
+FNstep <- vifstep(FNVIF, th = 10)
+FNstep
+
+TGVIF <- data.frame(TG$SPC, TG$H, TG$Turbidity, TG$Temp, TG$Rain, TG$Flow_max, TG$Prev_date, TG$Prev_site)
+
+TGstep <- vifstep(TGVIF, th = 10)
+TGstep
+
+MHVIF <- data.frame(MH$SPC, MH$H, MH$Turbidity, MH$Temp, MH$Rain, MH$Flow_max, MH$Prev_date, MH$Prev_site)
+
+MHstep <- vifstep(MHVIF, th = 10)
+MHstep
+
+
+WC <- Wheeling_Creek_Data_Copy
+
+wcVIF <- data.frame(WC$E_coli_MPN, WC$SPC, WC$pH, WC$Turbidity, WC$Temp, WC$Rain_cm, WC$Flow_max, WC$Developed_LMH, WC$CSO)
+
+wcstep <- vifstep(wcVIF, th = 10)
+wcstep
+
+```
+
+##RB
+```{r}
+RB[complete.cases(RB), ]
+RB1 <- RB[complete.cases(RB), ]
+RB1 <-RB
+
+Ranch.Ecoli.models<-list()
+Ranch.Ecoli.models[[1]]  <- lm( E_coli_MPN ~ scale(Turbidity) , data=RB1)
+Ranch.Ecoli.models[[2]]  <- lm( E_coli_MPN ~ scale(Temp),data=RB1)
+Ranch.Ecoli.models[[3]]  <- lm( E_coli_MPN ~ scale(SPC), data=RB1)
+Ranch.Ecoli.models[[4]]  <- lm( E_coli_MPN ~ scale(H), data=RB1)
+Ranch.Ecoli.models[[5]]  <- lm( E_coli_MPN ~ scale(Rain), data=RB1)
+Ranch.Ecoli.models[[6]]  <- lm( E_coli_MPN ~ scale(Flow_max), data=RB1)
+Ranch.Ecoli.models[[7]]  <- lm( E_coli_MPN ~ scale(Flow_day), data=RB1)
+
+Ranch.Ecoli.models[[8]]  <- lm( E_coli_MPN ~ scale(Temp)+ scale(Turbidity) , data=RB1)
+Ranch.Ecoli.models[[9]]  <- lm( E_coli_MPN ~ scale(SPC)+ scale(Turbidity) , data=RB1)
+Ranch.Ecoli.models[[10]]  <- lm( E_coli_MPN ~ scale(H)+ scale(Turbidity) , data=RB1)
+Ranch.Ecoli.models[[11]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(Turbidity) , data=RB1)
+Ranch.Ecoli.models[[12]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(Turbidity) , data=RB1)
+Ranch.Ecoli.models[[13]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(Turbidity), data=RB1)
+
+Ranch.Ecoli.models[[14]]  <- lm( E_coli_MPN ~ scale(SPC) + scale(Temp) , data=RB1)
+Ranch.Ecoli.models[[15]]  <- lm( E_coli_MPN ~ scale(H) + scale(Temp), data=RB1)
+Ranch.Ecoli.models[[16]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(Temp), data=RB1)
+Ranch.Ecoli.models[[17]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(Temp), data=RB1)
+Ranch.Ecoli.models[[18]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(Temp), data=RB1)
+
+Ranch.Ecoli.models[[19]]  <- lm( E_coli_MPN ~ scale(H)+ scale(SPC), data=RB1)
+Ranch.Ecoli.models[[20]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(SPC), data=RB1)
+Ranch.Ecoli.models[[21]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(SPC), data=RB1)
+Ranch.Ecoli.models[[22]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(SPC), data=RB1)
+
+Ranch.Ecoli.models[[23]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(H), data=RB1)
+Ranch.Ecoli.models[[24]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(H), data=RB1)
+Ranch.Ecoli.models[[25]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(H), data=RB1)
+
+Ranch.Ecoli.models[[26]]  <- lm( E_coli_MPN ~ scale(CSO), data=RB1)
+Ranch.Ecoli.models[[27]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Developed_LMH), data=RB1)
+#Ranch.Ecoli.models[[28]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Nutrients), data=RB1)
+Ranch.Ecoli.models[[29]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Turbidity), data=RB1)
+Ranch.Ecoli.models[[30]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Temp),data=RB1)
+Ranch.Ecoli.models[[31]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(SPC), data=RB1)
+Ranch.Ecoli.models[[32]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(H), data=RB1)
+Ranch.Ecoli.models[[33]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Rain), data=RB1)
+Ranch.Ecoli.models[[34]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Flow_max), data=RB1)
+Ranch.Ecoli.models[[35]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Flow_day), data=RB1)
+Ranch.Ecoli.models[[36]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Turbidity) , data=RB1)
+Ranch.Ecoli.models[[37]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Temp),data=RB1)
+Ranch.Ecoli.models[[38]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(SPC), data=RB1)
+Ranch.Ecoli.models[[39]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(H), data=RB1)
+Ranch.Ecoli.models[[40]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Rain), data=RB1)
+Ranch.Ecoli.models[[41]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Flow_max), data=RB1)
+Ranch.Ecoli.models[[42]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Flow_day), data=RB1)
+
+Ranch.Ecoli.models[[43]]  <- lm( E_coli_MPN ~ scale(Developed_LMH), data=RB1)
+#Ranch.Ecoli.models[[44]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(Nutrients), data=RB1)
+Ranch.Ecoli.models[[45]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(Turbidity), data=RB1)
+Ranch.Ecoli.models[[46]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(Temp),data=RB1)
+Ranch.Ecoli.models[[47]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(SPC), data=RB1)
+Ranch.Ecoli.models[[48]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(H), data=RB1)
+Ranch.Ecoli.models[[49]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(Rain), data=RB1)
+Ranch.Ecoli.models[[50]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(Flow_max), data=RB1)
+Ranch.Ecoli.models[[51]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(Flow_day), data=RB1)
+Ranch.Ecoli.models[[52]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(Turbidity) , data=RB1)
+Ranch.Ecoli.models[[53]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(Temp),data=RB1)
+Ranch.Ecoli.models[[54]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(SPC), data=RB1)
+Ranch.Ecoli.models[[55]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(H), data=RB1)
+Ranch.Ecoli.models[[56]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(Rain), data=RB1)
+Ranch.Ecoli.models[[57]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(Flow_max), data=RB1)
+Ranch.Ecoli.models[[58]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(Flow_day), data=RB1)
+
+#Ranch.Ecoli.models[[59]]  <- lm( E_coli_MPN ~ scale(Nutrients), data=RB1)
+#Ranch.Ecoli.models[[60]]  <- lm( E_coli_MPN ~ scale(Nutrients) + scale(Turbidity), data=RB1)
+#Ranch.Ecoli.models[[61]]  <- lm( E_coli_MPN ~ scale(Nutrients) + scale(Temp),data=RB1)
+#Ranch.Ecoli.models[[62]]  <- lm( E_coli_MPN ~ scale(Nutrients) + scale(SPC), data=RB1)
+#Ranch.Ecoli.models[[63]]  <- lm( E_coli_MPN ~ scale(Nutrients) + scale(H), data=RB1)
+#Ranch.Ecoli.models[[64]]  <- lm( E_coli_MPN ~ scale(Nutrients) + scale(Rain), data=RB1)
+#Ranch.Ecoli.models[[65]]  <- lm( E_coli_MPN ~ scale(Nutrients) + scale(Flow_max), data=RB1)
+#Ranch.Ecoli.models[[66]]  <- lm( E_coli_MPN ~ scale(Nutrients) + scale(Flow_day), data=RB1)
+#Ranch.Ecoli.models[[67]]  <- lm( E_coli_MPN ~ scale(Nutrients) + scale(Turbidity) , data=RB1)
+#Ranch.Ecoli.models[[68]]  <- lm( E_coli_MPN ~ scale(Nutrients) + scale(Temp),data=RB1)
+#Ranch.Ecoli.models[[69]]  <- lm( E_coli_MPN ~ scale(Nutrients) + scale(SPC), data=RB1)
+#Ranch.Ecoli.models[[70]]  <- lm( E_coli_MPN ~ scale(Nutrients) + scale(H), data=RB1)
+#Ranch.Ecoli.models[[71]]  <- lm( E_coli_MPN ~ scale(Nutrients) + scale(Rain), data=RB1)
+#Ranch.Ecoli.models[[72]  <- lm( E_coli_MPN ~ scale(Nutrients) + scale(Flow_max), data=RB1)
+#Ranch.Ecoli.models[[73]]  <- lm( E_coli_MPN ~ scale(Nutrients) + scale(Flow_day), data=RB1)
+
+Mods.Ranch.Ecoli <- paste("model", 1:length(Ranch.Ecoli.models), sep = " ")
+##generate AICc table from candidate models so that you can control the model
+
+aictab(cand.set = Ranch.Ecoli.models, modnames = Mods.Ranch.Ecoli, sort = TRUE)
+
+Ranch.13 <- lm(E_coli_MPN ~ scale(Flow_day)+ scale(Turbidity), data=RB1)
+Ranch.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(H)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_day)+ scale(Prev_date), data=RB1)
+confint(Ranch.13)
+
+summary(Ranch.Ecoli.models[[13]])
+summary(Ranch.Ecoli.models[[25]])
+summary(Ranch.Ecoli.models[[11]])
+plot(E_coli_MPN ~ Flow_day + Turbidity + H, data = RB1)
+
+library(sjPlot)
+library(sjmisc)
+
+sjp.lmer(Ranch13, y.offset = .4)
+
+ggCaterpillar(Ranch13, QQ = TRUE, likeDotplot = TRUE)
+
+```
+##CH
+```{r Cricket}
+CH1 <-CH
+
+Cricket.Ecoli.models<-list()
+Cricket.Ecoli.models[[1]]  <- lm( E_coli_MPN ~ scale(Turbidity) , data=CH1)
+Cricket.Ecoli.models[[2]]  <- lm( E_coli_MPN ~ scale(Temp),data=CH1)
+Cricket.Ecoli.models[[3]]  <- lm( E_coli_MPN ~ scale(SPC), data=CH1)
+Cricket.Ecoli.models[[4]]  <- lm( E_coli_MPN ~ scale(H), data=CH1)
+Cricket.Ecoli.models[[5]]  <- lm( E_coli_MPN ~ scale(Rain), data=CH1)
+Cricket.Ecoli.models[[6]]  <- lm( E_coli_MPN ~ scale(Flow_max), data=CH1)
+Cricket.Ecoli.models[[7]]  <- lm( E_coli_MPN ~ scale(Flow_day), data=CH1)
+
+Cricket.Ecoli.models[[8]]  <- lm( E_coli_MPN ~ scale(Temp)+ scale(Turbidity) , data=CH1)
+Cricket.Ecoli.models[[9]]  <- lm( E_coli_MPN ~ scale(SPC)+ scale(Turbidity) , data=CH1)
+Cricket.Ecoli.models[[10]]  <- lm( E_coli_MPN ~ scale(H)+ scale(Turbidity) , data=CH1)
+Cricket.Ecoli.models[[11]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(Turbidity) , data=CH1)
+Cricket.Ecoli.models[[12]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(Turbidity) , data=CH1)
+Cricket.Ecoli.models[[13]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(Turbidity), data=CH1)
+
+Cricket.Ecoli.models[[14]]  <- lm( E_coli_MPN ~ scale(SPC) + scale(Temp) , data=CH1)
+Cricket.Ecoli.models[[15]]  <- lm( E_coli_MPN ~ scale(H) + scale(Temp), data=CH1)
+Cricket.Ecoli.models[[16]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(Temp), data=CH1)
+Cricket.Ecoli.models[[17]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(Temp), data=CH1)
+Cricket.Ecoli.models[[18]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(Temp), data=CH1)
+
+Cricket.Ecoli.models[[19]]  <- lm( E_coli_MPN ~ scale(H)+ scale(SPC), data=CH1)
+Cricket.Ecoli.models[[20]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(SPC), data=CH1)
+Cricket.Ecoli.models[[21]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(SPC), data=CH1)
+Cricket.Ecoli.models[[22]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(SPC), data=CH1)
+
+Cricket.Ecoli.models[[23]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(H), data=CH1)
+Cricket.Ecoli.models[[24]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(H), data=CH1)
+Cricket.Ecoli.models[[25]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(H), data=CH1)
+
+
+Mods.Cricket.Ecoli <- paste("model", 1:length(Cricket.Ecoli.models), sep = " ")
+##generate AICc table from candidate models so that you can control the model
+aictab(cand.set = Cricket.Ecoli.models, modnames = Mods.Cricket.Ecoli, sort = TRUE)
+
+Cricket.13 <- lm(E_coli_MPN ~ scale(Flow_day)+ scale(Turbidity), data=CH1)
+Cricket.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(H)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_day)+ scale(Prev_date) + scale(Prev_site), data=CH1)
+confint(Cricket.13)
+
+
+summary(Cricket.Ecoli.models[[13]])
+summary(Cricket.Ecoli.models[[25]])
+summary(Cricket.Ecoli.models[[10]])
+plot(E_coli_MPN ~ Flow_day + Turbidity + H, data = CH1)
+
+
+```
+##GR
+```{r Grandstaff}
+GR1 <-GR
+
+Grandstaff.Ecoli.models<-list()
+Grandstaff.Ecoli.models[[1]]  <- lm( E_coli_MPN ~ scale(Turbidity) , data=GR1)
+Grandstaff.Ecoli.models[[2]]  <- lm( E_coli_MPN ~ scale(Temp),data=GR1)
+Grandstaff.Ecoli.models[[3]]  <- lm( E_coli_MPN ~ scale(SPC), data=GR1)
+Grandstaff.Ecoli.models[[4]]  <- lm( E_coli_MPN ~ scale(H), data=GR1)
+Grandstaff.Ecoli.models[[5]]  <- lm( E_coli_MPN ~ scale(Rain), data=GR1)
+Grandstaff.Ecoli.models[[6]]  <- lm( E_coli_MPN ~ scale(Flow_max), data=GR1)
+Grandstaff.Ecoli.models[[7]]  <- lm( E_coli_MPN ~ scale(Flow_day), data=GR1)
+
+Grandstaff.Ecoli.models[[8]]  <- lm( E_coli_MPN ~ scale(Temp)+ scale(Turbidity) , data=GR1)
+Grandstaff.Ecoli.models[[9]]  <- lm( E_coli_MPN ~ scale(SPC)+ scale(Turbidity) , data=GR1)
+Grandstaff.Ecoli.models[[10]]  <- lm( E_coli_MPN ~ scale(H)+ scale(Turbidity) , data=GR1)
+Grandstaff.Ecoli.models[[11]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(Turbidity) , data=GR1)
+Grandstaff.Ecoli.models[[12]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(Turbidity) , data=GR1)
+Grandstaff.Ecoli.models[[13]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(Turbidity), data=GR1)
+
+Grandstaff.Ecoli.models[[14]]  <- lm( E_coli_MPN ~ scale(SPC) + scale(Temp) , data=GR1)
+Grandstaff.Ecoli.models[[15]]  <- lm( E_coli_MPN ~ scale(H) + scale(Temp), data=GR1)
+Grandstaff.Ecoli.models[[16]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(Temp), data=GR1)
+Grandstaff.Ecoli.models[[17]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(Temp), data=GR1)
+Grandstaff.Ecoli.models[[18]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(Temp), data=GR1)
+
+Grandstaff.Ecoli.models[[19]]  <- lm( E_coli_MPN ~ scale(H)+ scale(SPC), data=GR1)
+Grandstaff.Ecoli.models[[20]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(SPC), data=GR1)
+Grandstaff.Ecoli.models[[21]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(SPC), data=GR1)
+Grandstaff.Ecoli.models[[22]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(SPC), data=GR1)
+
+Grandstaff.Ecoli.models[[23]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(H), data=GR1)
+Grandstaff.Ecoli.models[[24]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(H), data=GR1)
+Grandstaff.Ecoli.models[[25]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(H), data=GR1)
+
+
+Mods.Grandstaff.Ecoli <- paste("model", 1:length(Grandstaff.Ecoli.models), sep = " ")
+##generate AICc table from candidate models so that you can control the model
+aictab(cand.set = Grandstaff.Ecoli.models, modnames = Mods.Grandstaff.Ecoli, sort = TRUE)
+
+Grand.25 <- lm(E_coli_MPN ~ scale(Flow_day)+ scale(H), data=GR1)
+Grand.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(H)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_day)+ scale(Prev_date), data=GR1)
+confint(Grand.25)
+
+summary(Grandstaff.Ecoli.models[[25]])
+summary(Grandstaff.Ecoli.models[[18]])
+summary(Grandstaff.Ecoli.models[[13]])
+plot(E_coli_MPN ~ Flow_day + H + Temp, data = GR1)
+
+```
+##BR
+```{r Britt}
+BR1 <-BR
+
+Britt.Ecoli.models<-list()
+Britt.Ecoli.models[[1]]  <- lm( E_coli_MPN ~ scale(Turbidity) , data=BR1)
+Britt.Ecoli.models[[2]]  <- lm( E_coli_MPN ~ scale(Temp),data=BR1)
+Britt.Ecoli.models[[3]]  <- lm( E_coli_MPN ~ scale(SPC), data=BR1)
+Britt.Ecoli.models[[4]]  <- lm( E_coli_MPN ~ scale(H), data=BR1)
+Britt.Ecoli.models[[5]]  <- lm( E_coli_MPN ~ scale(Rain), data=BR1)
+Britt.Ecoli.models[[6]]  <- lm( E_coli_MPN ~ scale(Flow_max), data=BR1)
+Britt.Ecoli.models[[7]]  <- lm( E_coli_MPN ~ scale(Flow_day), data=BR1)
+
+Britt.Ecoli.models[[8]]  <- lm( E_coli_MPN ~ scale(Temp)+ scale(Turbidity) , data=BR1)
+Britt.Ecoli.models[[9]]  <- lm( E_coli_MPN ~ scale(SPC)+ scale(Turbidity) , data=BR1)
+Britt.Ecoli.models[[10]]  <- lm( E_coli_MPN ~ scale(H)+ scale(Turbidity) , data=BR1)
+Britt.Ecoli.models[[11]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(Turbidity) , data=BR1)
+Britt.Ecoli.models[[12]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(Turbidity) , data=BR1)
+Britt.Ecoli.models[[13]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(Turbidity), data=BR1)
+
+Britt.Ecoli.models[[14]]  <- lm( E_coli_MPN ~ scale(SPC) + scale(Temp) , data=BR1)
+Britt.Ecoli.models[[15]]  <- lm( E_coli_MPN ~ scale(H) + scale(Temp), data=BR1)
+Britt.Ecoli.models[[16]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(Temp), data=BR1)
+Britt.Ecoli.models[[17]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(Temp), data=BR1)
+Britt.Ecoli.models[[18]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(Temp), data=BR1)
+
+Britt.Ecoli.models[[19]]  <- lm( E_coli_MPN ~ scale(H)+ scale(SPC), data=BR1)
+Britt.Ecoli.models[[20]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(SPC), data=BR1)
+Britt.Ecoli.models[[21]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(SPC), data=BR1)
+Britt.Ecoli.models[[22]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(SPC), data=BR1)
+
+Britt.Ecoli.models[[23]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(H), data=BR1)
+Britt.Ecoli.models[[24]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(H), data=BR1)
+Britt.Ecoli.models[[25]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(H), data=BR1)
+
+
+Mods.Britt.Ecoli <- paste("model", 1:length(Britt.Ecoli.models), sep = " ")
+##generate AICc table from candidate models so that you can control the model
+aictab(cand.set = Britt.Ecoli.models, modnames = Mods.Britt.Ecoli, sort = TRUE)
+
+Britt.25 <- lm(E_coli_MPN ~ scale(Flow_day)+ scale(H), data=BR1)
+Britt.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(H)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_day)+ scale(Prev_date), data=BR1)
+confint(Britt.25)
+
+summary(Britt.Ecoli.models[[25]])
+summary(Britt.Ecoli.models[[18]])
+summary(Britt.Ecoli.models[[13]])
+plot(E_coli_MPN ~ Flow_day + H + Temp, data = BR1)
+
+```
+##CL
+
+```{r County}
+CL1 <-CL
+
+County.Ecoli.models<-list()
+County.Ecoli.models[[1]]  <- lm( E_coli_MPN ~ scale(Turbidity) , data=CL1)
+County.Ecoli.models[[2]]  <- lm( E_coli_MPN ~ scale(Temp),data=CL1)
+County.Ecoli.models[[3]]  <- lm( E_coli_MPN ~ scale(SPC), data=CL1)
+County.Ecoli.models[[4]]  <- lm( E_coli_MPN ~ scale(H), data=CL1)
+County.Ecoli.models[[5]]  <- lm( E_coli_MPN ~ scale(Rain), data=CL1)
+County.Ecoli.models[[6]]  <- lm( E_coli_MPN ~ scale(Flow_max), data=CL1)
+County.Ecoli.models[[7]]  <- lm( E_coli_MPN ~ scale(Flow_day), data=CL1)
+
+County.Ecoli.models[[8]]  <- lm( E_coli_MPN ~ scale(Temp)+ scale(Turbidity) , data=CL1)
+County.Ecoli.models[[9]]  <- lm( E_coli_MPN ~ scale(SPC)+ scale(Turbidity) , data=CL1)
+County.Ecoli.models[[10]]  <- lm( E_coli_MPN ~ scale(H)+ scale(Turbidity) , data=CL1)
+County.Ecoli.models[[11]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(Turbidity) , data=CL1)
+County.Ecoli.models[[12]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(Turbidity) , data=CL1)
+County.Ecoli.models[[13]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(Turbidity), data=CL1)
+
+County.Ecoli.models[[14]]  <- lm( E_coli_MPN ~ scale(SPC) + scale(Temp) , data=CL1)
+County.Ecoli.models[[15]]  <- lm( E_coli_MPN ~ scale(H) + scale(Temp), data=CL1)
+County.Ecoli.models[[16]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(Temp), data=CL1)
+County.Ecoli.models[[17]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(Temp), data=CL1)
+County.Ecoli.models[[18]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(Temp), data=CL1)
+
+County.Ecoli.models[[19]]  <- lm( E_coli_MPN ~ scale(H)+ scale(SPC), data=CL1)
+County.Ecoli.models[[20]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(SPC), data=CL1)
+County.Ecoli.models[[21]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(SPC), data=CL1)
+County.Ecoli.models[[22]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(SPC), data=CL1)
+
+County.Ecoli.models[[23]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(H), data=CL1)
+County.Ecoli.models[[24]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(H), data=CL1)
+County.Ecoli.models[[25]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(H), data=CL1)
+
+
+Mods.County.Ecoli <- paste("model", 1:length(County.Ecoli.models), sep = " ")
+aictab(cand.set = County.Ecoli.models, modnames = Mods.County.Ecoli, sort = TRUE)
+
+Count.25 <- lm(E_coli_MPN ~ scale(Flow_day)+ scale(H), data=CL1)
+Count.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(H)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_day)+ scale(Prev_date), data=CL1)
+confint(Count.25)
+
+summary(County.Ecoli.models[[25]])
+summary(County.Ecoli.models[[18]])
+summary(County.Ecoli.models[[13]])
+plot(E_coli_MPN ~ Flow_day + H + Turbidity, data = CL1)
+```
+
+##EG
+
+```{r Elm}
+EG1 <-EG
+
+Elm.Ecoli.models<-list()
+Elm.Ecoli.models[[1]]  <- lm( E_coli_MPN ~ scale(Turbidity) , data=EG1)
+Elm.Ecoli.models[[2]]  <- lm( E_coli_MPN ~ scale(Temp),data=EG1)
+Elm.Ecoli.models[[3]]  <- lm( E_coli_MPN ~ scale(SPC), data=EG1)
+Elm.Ecoli.models[[4]]  <- lm( E_coli_MPN ~ scale(H), data=EG1)
+Elm.Ecoli.models[[5]]  <- lm( E_coli_MPN ~ scale(Rain), data=EG1)
+Elm.Ecoli.models[[6]]  <- lm( E_coli_MPN ~ scale(Flow_max), data=EG1)
+Elm.Ecoli.models[[7]]  <- lm( E_coli_MPN ~ scale(Flow_day), data=EG1)
+
+Elm.Ecoli.models[[8]]  <- lm( E_coli_MPN ~ scale(Temp)+ scale(Turbidity) , data=EG1)
+Elm.Ecoli.models[[9]]  <- lm( E_coli_MPN ~ scale(SPC)+ scale(Turbidity) , data=EG1)
+Elm.Ecoli.models[[10]]  <- lm( E_coli_MPN ~ scale(H)+ scale(Turbidity) , data=EG1)
+Elm.Ecoli.models[[11]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(Turbidity) , data=EG1)
+Elm.Ecoli.models[[12]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(Turbidity) , data=EG1)
+Elm.Ecoli.models[[13]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(Turbidity), data=EG1)
+
+Elm.Ecoli.models[[14]]  <- lm( E_coli_MPN ~ scale(SPC) + scale(Temp) , data=EG1)
+Elm.Ecoli.models[[15]]  <- lm( E_coli_MPN ~ scale(H) + scale(Temp), data=EG1)
+Elm.Ecoli.models[[16]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(Temp), data=EG1)
+Elm.Ecoli.models[[17]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(Temp), data=EG1)
+Elm.Ecoli.models[[18]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(Temp), data=EG1)
+
+Elm.Ecoli.models[[19]]  <- lm( E_coli_MPN ~ scale(H)+ scale(SPC), data=EG1)
+Elm.Ecoli.models[[20]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(SPC), data=EG1)
+Elm.Ecoli.models[[21]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(SPC), data=EG1)
+Elm.Ecoli.models[[22]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(SPC), data=EG1)
+
+Elm.Ecoli.models[[23]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(H), data=EG1)
+Elm.Ecoli.models[[24]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(H), data=EG1)
+Elm.Ecoli.models[[25]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(H), data=EG1)
+
+
+Mods.Elm.Ecoli <- paste("model", 1:length(Elm.Ecoli.models), sep = " ")
+aictab(cand.set = Elm.Ecoli.models, modnames = Mods.Elm.Ecoli, sort = TRUE)
+
+Elm.25 <- lm(E_coli_MPN ~ scale(Flow_day)+ scale(H), data=EG1)
+Elm.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(H)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_day)+ scale(Prev_date), data=EG1)
+confint(Elm.25)
+
+summary(Elm.Ecoli.models[[25]])
+summary(Elm.Ecoli.models[[15]])
+summary(Elm.Ecoli.models[[18]])
+plot(E_coli_MPN ~ Flow_day + H + Temp, data = EG1)
+
+```
+##JR
+```{r Jr}
+JR1 <-JR
+
+Jr.Ecoli.models<-list()
+Jr.Ecoli.models[[1]]  <- lm( E_coli_MPN ~ scale(Turbidity) , data=JR1)
+Jr.Ecoli.models[[2]]  <- lm( E_coli_MPN ~ scale(Temp),data=JR1)
+Jr.Ecoli.models[[3]]  <- lm( E_coli_MPN ~ scale(SPC), data=JR1)
+Jr.Ecoli.models[[4]]  <- lm( E_coli_MPN ~ scale(H), data=JR1)
+Jr.Ecoli.models[[5]]  <- lm( E_coli_MPN ~ scale(Rain), data=JR1)
+Jr.Ecoli.models[[6]]  <- lm( E_coli_MPN ~ scale(Flow_max), data=JR1)
+Jr.Ecoli.models[[7]]  <- lm( E_coli_MPN ~ scale(Flow_day), data=JR1)
+
+Jr.Ecoli.models[[8]]  <- lm( E_coli_MPN ~ scale(Temp)+ scale(Turbidity) , data=JR1)
+Jr.Ecoli.models[[9]]  <- lm( E_coli_MPN ~ scale(SPC)+ scale(Turbidity) , data=JR1)
+Jr.Ecoli.models[[10]]  <- lm( E_coli_MPN ~ scale(H)+ scale(Turbidity) , data=JR1)
+Jr.Ecoli.models[[11]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(Turbidity) , data=JR1)
+Jr.Ecoli.models[[12]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(Turbidity) , data=JR1)
+Jr.Ecoli.models[[13]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(Turbidity), data=JR1)
+
+Jr.Ecoli.models[[14]]  <- lm( E_coli_MPN ~ scale(SPC) + scale(Temp) , data=JR1)
+Jr.Ecoli.models[[15]]  <- lm( E_coli_MPN ~ scale(H) + scale(Temp), data=JR1)
+Jr.Ecoli.models[[16]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(Temp), data=JR1)
+Jr.Ecoli.models[[17]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(Temp), data=JR1)
+Jr.Ecoli.models[[18]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(Temp), data=JR1)
+
+Jr.Ecoli.models[[19]]  <- lm( E_coli_MPN ~ scale(H)+ scale(SPC), data=JR1)
+Jr.Ecoli.models[[20]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(SPC), data=JR1)
+Jr.Ecoli.models[[21]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(SPC), data=JR1)
+Jr.Ecoli.models[[22]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(SPC), data=JR1)
+
+Jr.Ecoli.models[[23]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(H), data=JR1)
+Jr.Ecoli.models[[24]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(H), data=JR1)
+Jr.Ecoli.models[[25]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(H), data=JR1)
+
+
+Mods.Jr.Ecoli <- paste("model", 1:length(Jr.Ecoli.models), sep = " ")
+aictab(cand.set = Jr.Ecoli.models, modnames = Mods.Jr.Ecoli, sort = TRUE)
+
+Jr.25 <- lm(E_coli_MPN ~ scale(Flow_day)+ scale(H), data=JR1)
+Jr.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(H)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_day)+ scale(Prev_date), data=JR1)
+confint(Jr.25)
+
+summary(Jr.Ecoli.models[[25]])
+summary(Jr.Ecoli.models[[15]])
+summary(Jr.Ecoli.models[[18]])
+plot(E_coli_MPN ~ Flow_day + H + Temp, data = JR1)
+```
+
+##WA
+```{r WA}
+WA1 <-WA
+
+WA.Ecoli.models<-list()
+WA.Ecoli.models[[1]]  <- lm( E_coli_MPN ~ scale(Turbidity) , data=WA1)
+WA.Ecoli.models[[2]]  <- lm( E_coli_MPN ~ scale(Temp),data=WA1)
+WA.Ecoli.models[[3]]  <- lm( E_coli_MPN ~ scale(SPC), data=WA1)
+WA.Ecoli.models[[4]]  <- lm( E_coli_MPN ~ scale(H), data=WA1)
+WA.Ecoli.models[[5]]  <- lm( E_coli_MPN ~ scale(Rain), data=WA1)
+WA.Ecoli.models[[6]]  <- lm( E_coli_MPN ~ scale(Flow_max), data=WA1)
+WA.Ecoli.models[[7]]  <- lm( E_coli_MPN ~ scale(Flow_day), data=WA1)
+
+WA.Ecoli.models[[8]]  <- lm( E_coli_MPN ~ scale(Temp)+ scale(Turbidity) , data=WA1)
+WA.Ecoli.models[[9]]  <- lm( E_coli_MPN ~ scale(SPC)+ scale(Turbidity) , data=WA1)
+WA.Ecoli.models[[10]]  <- lm( E_coli_MPN ~ scale(H)+ scale(Turbidity) , data=WA1)
+WA.Ecoli.models[[11]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(Turbidity) , data=WA1)
+WA.Ecoli.models[[12]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(Turbidity) , data=WA1)
+WA.Ecoli.models[[13]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(Turbidity), data=WA1)
+
+WA.Ecoli.models[[14]]  <- lm( E_coli_MPN ~ scale(SPC) + scale(Temp) , data=WA1)
+WA.Ecoli.models[[15]]  <- lm( E_coli_MPN ~ scale(H) + scale(Temp), data=WA1)
+WA.Ecoli.models[[16]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(Temp), data=WA1)
+WA.Ecoli.models[[17]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(Temp), data=WA1)
+WA.Ecoli.models[[18]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(Temp), data=WA1)
+
+WA.Ecoli.models[[19]]  <- lm( E_coli_MPN ~ scale(H)+ scale(SPC), data=WA1)
+WA.Ecoli.models[[20]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(SPC), data=WA1)
+WA.Ecoli.models[[21]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(SPC), data=WA1)
+WA.Ecoli.models[[22]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(SPC), data=WA1)
+
+WA.Ecoli.models[[23]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(H), data=WA1)
+WA.Ecoli.models[[24]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(H), data=WA1)
+WA.Ecoli.models[[25]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(H), data=WA1)
+
+
+Mods.WA.Ecoli <- paste("model", 1:length(WA.Ecoli.models), sep = " ")
+aictab(cand.set = WA.Ecoli.models, modnames = Mods.WA.Ecoli, sort = TRUE)
+
+Wash.25 <- lm(E_coli_MPN ~ scale(Flow_day)+ scale(H), data=WA1)
+Wash.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(H)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_day)+ scale(Prev_date), data=WA1)
+confint(Wash.25)
+
+summary(WA.Ecoli.models[[25]])
+summary(WA.Ecoli.models[[7]])
+summary(WA.Ecoli.models[[13]])
+plot(E_coli_MPN ~ Flow_day + H + Turbidity, data = WA1)
+```
+
+##KR
+```{r KR}
+KR1 <-KR
+
+KR.Ecoli.models<-list()
+KR.Ecoli.models[[1]]  <- lm( E_coli_MPN ~ scale(Turbidity) , data=KR1)
+KR.Ecoli.models[[2]]  <- lm( E_coli_MPN ~ scale(Temp),data=KR1)
+KR.Ecoli.models[[3]]  <- lm( E_coli_MPN ~ scale(SPC), data=KR1)
+KR.Ecoli.models[[4]]  <- lm( E_coli_MPN ~ scale(H), data=KR1)
+KR.Ecoli.models[[5]]  <- lm( E_coli_MPN ~ scale(Rain), data=KR1)
+KR.Ecoli.models[[6]]  <- lm( E_coli_MPN ~ scale(Flow_max), data=KR1)
+KR.Ecoli.models[[7]]  <- lm( E_coli_MPN ~ scale(Flow_day), data=KR1)
+
+KR.Ecoli.models[[8]]  <- lm( E_coli_MPN ~ scale(Temp)+ scale(Turbidity) , data=KR1)
+KR.Ecoli.models[[9]]  <- lm( E_coli_MPN ~ scale(SPC)+ scale(Turbidity) , data=KR1)
+KR.Ecoli.models[[10]]  <- lm( E_coli_MPN ~ scale(H)+ scale(Turbidity) , data=KR1)
+KR.Ecoli.models[[11]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(Turbidity) , data=KR1)
+KR.Ecoli.models[[12]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(Turbidity) , data=KR1)
+KR.Ecoli.models[[13]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(Turbidity), data=KR1)
+
+KR.Ecoli.models[[14]]  <- lm( E_coli_MPN ~ scale(SPC) + scale(Temp) , data=KR1)
+KR.Ecoli.models[[15]]  <- lm( E_coli_MPN ~ scale(H) + scale(Temp), data=KR1)
+KR.Ecoli.models[[16]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(Temp), data=KR1)
+KR.Ecoli.models[[17]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(Temp), data=KR1)
+KR.Ecoli.models[[18]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(Temp), data=KR1)
+
+KR.Ecoli.models[[19]]  <- lm( E_coli_MPN ~ scale(H)+ scale(SPC), data=KR1)
+KR.Ecoli.models[[20]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(SPC), data=KR1)
+KR.Ecoli.models[[21]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(SPC), data=KR1)
+KR.Ecoli.models[[22]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(SPC), data=KR1)
+
+KR.Ecoli.models[[23]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(H), data=KR1)
+KR.Ecoli.models[[24]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(H), data=KR1)
+KR.Ecoli.models[[25]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(H), data=KR1)
+
+
+Mods.KR.Ecoli <- paste("model", 1:length(KR.Ecoli.models), sep = " ")
+aictab(cand.set = KR.Ecoli.models, modnames = Mods.KR.Ecoli, sort = TRUE)
+
+Kroger.25 <- lm(E_coli_MPN ~ scale(Flow_day)+ scale(H), data=KR1)
+Kroger.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(H)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_day)+ scale(Prev_date), data=KR1)
+confint(Kroger.25)
+
+summary(KR.Ecoli.models[[25]])
+summary(KR.Ecoli.models[[7]])
+summary(KR.Ecoli.models[[13]])
+plot(E_coli_MPN ~ Flow_day + H + Turbidity, data = KR1)
+```
+
+##FN
+```{r FN}
+FN1 <-FN
+
+FN.Ecoli.models<-list()
+FN.Ecoli.models[[1]]  <- lm( E_coli_MPN ~ scale(Turbidity) , data=FN1)
+FN.Ecoli.models[[2]]  <- lm( E_coli_MPN ~ scale(Temp),data=FN1)
+FN.Ecoli.models[[3]]  <- lm( E_coli_MPN ~ scale(SPC), data=FN1)
+FN.Ecoli.models[[4]]  <- lm( E_coli_MPN ~ scale(H), data=FN1)
+FN.Ecoli.models[[5]]  <- lm( E_coli_MPN ~ scale(Rain), data=FN1)
+FN.Ecoli.models[[6]]  <- lm( E_coli_MPN ~ scale(Flow_max), data=FN1)
+FN.Ecoli.models[[7]]  <- lm( E_coli_MPN ~ scale(Flow_day), data=FN1)
+
+FN.Ecoli.models[[8]]  <- lm( E_coli_MPN ~ scale(Temp)+ scale(Turbidity) , data=FN1)
+FN.Ecoli.models[[9]]  <- lm( E_coli_MPN ~ scale(SPC)+ scale(Turbidity) , data=FN1)
+FN.Ecoli.models[[10]]  <- lm( E_coli_MPN ~ scale(H)+ scale(Turbidity) , data=FN1)
+FN.Ecoli.models[[11]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(Turbidity) , data=FN1)
+FN.Ecoli.models[[12]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(Turbidity) , data=FN1)
+FN.Ecoli.models[[13]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(Turbidity), data=FN1)
+
+FN.Ecoli.models[[14]]  <- lm( E_coli_MPN ~ scale(SPC) + scale(Temp) , data=FN1)
+FN.Ecoli.models[[15]]  <- lm( E_coli_MPN ~ scale(H) + scale(Temp), data=FN1)
+FN.Ecoli.models[[16]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(Temp), data=FN1)
+FN.Ecoli.models[[17]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(Temp), data=FN1)
+FN.Ecoli.models[[18]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(Temp), data=FN1)
+
+FN.Ecoli.models[[19]]  <- lm( E_coli_MPN ~ scale(H)+ scale(SPC), data=FN1)
+FN.Ecoli.models[[20]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(SPC), data=FN1)
+FN.Ecoli.models[[21]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(SPC), data=FN1)
+FN.Ecoli.models[[22]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(SPC), data=FN1)
+
+FN.Ecoli.models[[23]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(H), data=FN1)
+FN.Ecoli.models[[24]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(H), data=FN1)
+FN.Ecoli.models[[25]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(H), data=FN1)
+
+
+Mods.FN.Ecoli <- paste("model", 1:length(FN.Ecoli.models), sep = " ")
+aictab(cand.set = FN.Ecoli.models, modnames = Mods.FN.Ecoli, sort = TRUE)
+
+Fulton.25 <- lm(E_coli_MPN ~ scale(Flow_day)+ scale(H), data=FN1)
+Fulton.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(H)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_day)+ scale(Prev_date), data=FN1)
+confint(Fulton.25)
+
+summary(FN.Ecoli.models[[25]])
+summary(FN.Ecoli.models[[7]])
+summary(FN.Ecoli.models[[13]])
+plot(E_coli_MPN ~ Flow_day + H + Turbidity, data = FN1)
+```
+##TG
+```{r TG}
+TG1 <-TG
+
+TG.Ecoli.models<-list()
+TG.Ecoli.models[[1]]  <- lm( E_coli_MPN ~ scale(Turbidity) , data=TG1)
+TG.Ecoli.models[[2]]  <- lm( E_coli_MPN ~ scale(Temp),data=TG1)
+TG.Ecoli.models[[3]]  <- lm( E_coli_MPN ~ scale(SPC), data=TG1)
+TG.Ecoli.models[[4]]  <- lm( E_coli_MPN ~ scale(H), data=TG1)
+TG.Ecoli.models[[5]]  <- lm( E_coli_MPN ~ scale(Rain), data=TG1)
+TG.Ecoli.models[[6]]  <- lm( E_coli_MPN ~ scale(Flow_max), data=TG1)
+TG.Ecoli.models[[7]]  <- lm( E_coli_MPN ~ scale(Flow_day), data=TG1)
+
+TG.Ecoli.models[[8]]  <- lm( E_coli_MPN ~ scale(Temp)+ scale(Turbidity) , data=TG1)
+TG.Ecoli.models[[9]]  <- lm( E_coli_MPN ~ scale(SPC)+ scale(Turbidity) , data=TG1)
+TG.Ecoli.models[[10]]  <- lm( E_coli_MPN ~ scale(H)+ scale(Turbidity) , data=TG1)
+TG.Ecoli.models[[11]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(Turbidity) , data=TG1)
+TG.Ecoli.models[[12]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(Turbidity) , data=TG1)
+TG.Ecoli.models[[13]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(Turbidity), data=TG1)
+
+TG.Ecoli.models[[14]]  <- lm( E_coli_MPN ~ scale(SPC) + scale(Temp) , data=TG1)
+TG.Ecoli.models[[15]]  <- lm( E_coli_MPN ~ scale(H) + scale(Temp), data=TG1)
+TG.Ecoli.models[[16]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(Temp), data=TG1)
+TG.Ecoli.models[[17]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(Temp), data=TG1)
+TG.Ecoli.models[[18]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(Temp), data=TG1)
+
+TG.Ecoli.models[[19]]  <- lm( E_coli_MPN ~ scale(H)+ scale(SPC), data=TG1)
+TG.Ecoli.models[[20]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(SPC), data=TG1)
+TG.Ecoli.models[[21]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(SPC), data=TG1)
+TG.Ecoli.models[[22]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(SPC), data=TG1)
+
+TG.Ecoli.models[[23]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(H), data=TG1)
+TG.Ecoli.models[[24]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(H), data=TG1)
+TG.Ecoli.models[[25]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(H), data=TG1)
+
+
+Mods.TG.Ecoli <- paste("model", 1:length(TG.Ecoli.models), sep = " ")
+aictab(cand.set = TG.Ecoli.models, modnames = Mods.TG.Ecoli, sort = TRUE)
+
+Tunnel.25 <- lm(E_coli_MPN ~ scale(Flow_day)+ scale(H), data=TG1)
+Tunnel.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(H)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_day)+ scale(Prev_date), data=TG1)
+confint(Tunnel.25)
+
+summary(TG.Ecoli.models[[25]])
+summary(TG.Ecoli.models[[7]])
+summary(TG.Ecoli.models[[13]])
+plot(E_coli_MPN ~ Flow_day + H + SPC, data = TG1)
+```
+
+##MH
+```{r MH}
+MH1 <-MH
+
+MH.Ecoli.models<-list()
+MH.Ecoli.models[[1]]  <- lm( E_coli_MPN ~ scale(Turbidity) , data=MH1)
+MH.Ecoli.models[[2]]  <- lm( E_coli_MPN ~ scale(Temp),data=MH1)
+MH.Ecoli.models[[3]]  <- lm( E_coli_MPN ~ scale(SPC), data=MH1)
+MH.Ecoli.models[[4]]  <- lm( E_coli_MPN ~ scale(H), data=MH1)
+MH.Ecoli.models[[5]]  <- lm( E_coli_MPN ~ scale(Rain), data=MH1)
+MH.Ecoli.models[[6]]  <- lm( E_coli_MPN ~ scale(Flow_max), data=MH1)
+MH.Ecoli.models[[7]]  <- lm( E_coli_MPN ~ scale(Flow_day), data=MH1)
+
+MH.Ecoli.models[[8]]  <- lm( E_coli_MPN ~ scale(Temp)+ scale(Turbidity) , data=MH1)
+MH.Ecoli.models[[9]]  <- lm( E_coli_MPN ~ scale(SPC)+ scale(Turbidity) , data=MH1)
+MH.Ecoli.models[[10]]  <- lm( E_coli_MPN ~ scale(H)+ scale(Turbidity) , data=MH1)
+MH.Ecoli.models[[11]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(Turbidity) , data=MH1)
+MH.Ecoli.models[[12]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(Turbidity) , data=MH1)
+MH.Ecoli.models[[13]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(Turbidity), data=MH1)
+
+MH.Ecoli.models[[14]]  <- lm( E_coli_MPN ~ scale(SPC) + scale(Temp) , data=MH1)
+MH.Ecoli.models[[15]]  <- lm( E_coli_MPN ~ scale(H) + scale(Temp), data=MH1)
+MH.Ecoli.models[[16]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(Temp), data=MH1)
+MH.Ecoli.models[[17]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(Temp), data=MH1)
+MH.Ecoli.models[[18]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(Temp), data=MH1)
+
+MH.Ecoli.models[[19]]  <- lm( E_coli_MPN ~ scale(H)+ scale(SPC), data=MH1)
+MH.Ecoli.models[[20]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(SPC), data=MH1)
+MH.Ecoli.models[[21]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(SPC), data=MH1)
+MH.Ecoli.models[[22]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(SPC), data=MH1)
+
+MH.Ecoli.models[[23]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(H), data=MH1)
+MH.Ecoli.models[[24]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(H), data=MH1)
+MH.Ecoli.models[[25]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(H), data=MH1)
+
+
+Mods.MH.Ecoli <- paste("model", 1:length(MH.Ecoli.models), sep = " ")
+aictab(cand.set = MH.Ecoli.models, modnames = Mods.MH.Ecoli, sort = TRUE)
+
+Mouth.25 <- lm(E_coli_MPN ~ scale(Flow_day)+ scale(H), data=MH1)
+Mouth.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(H)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_day)+ scale(Prev_date), data=MH1)
+confint(Mouth.25)
+
+summary(MH.Ecoli.models[[25]])
+summary(MH.Ecoli.models[[7]])
+summary(MH.Ecoli.models[[13]])
+plot(E_coli_MPN ~ Flow_day + H + SPC, data = MH1)
+```
+##WC
+```{r WC}
+WC1 <- subset(WC, Site == "Ranch Bar" | Site == "Cricket Hollow" | Site == "Grandstaff Run" | Site == "Britt's Run" | Site == "County Line Bridge" | Site == "Elm Grove Park" | Site == "Junior Ave" | Site == "Washington" | Site == "Kroger" | Site == "Fulton" | Site == "Tunnel Green")
+
+print(WC1)
+
+WC.Ecoli.models<-list()
+WC.Ecoli.models[[1]]  <- lm( E_coli_MPN ~ scale(Turbidity) , data=WC1)
+WC.Ecoli.models[[2]]  <- lm( E_coli_MPN ~ scale(Temp),data=WC1)
+WC.Ecoli.models[[3]]  <- lm( E_coli_MPN ~ scale(SPC), data=WC1)
+WC.Ecoli.models[[4]]  <- lm( E_coli_MPN ~ scale(H), data=WC1)
+WC.Ecoli.models[[5]]  <- lm( E_coli_MPN ~ scale(Rain), data=WC1)
+WC.Ecoli.models[[6]]  <- lm( E_coli_MPN ~ scale(Flow_max), data=WC1)
+WC.Ecoli.models[[7]]  <- lm( E_coli_MPN ~ scale(Flow_day), data=WC1)
+
+WC.Ecoli.models[[8]]  <- lm( E_coli_MPN ~ scale(Temp)+ scale(Turbidity) , data=WC1)
+WC.Ecoli.models[[9]]  <- lm( E_coli_MPN ~ scale(SPC)+ scale(Turbidity) , data=WC1)
+WC.Ecoli.models[[10]]  <- lm( E_coli_MPN ~ scale(H)+ scale(Turbidity) , data=WC1)
+WC.Ecoli.models[[11]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(Turbidity) , data=WC1)
+WC.Ecoli.models[[12]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(Turbidity) , data=WC1)
+WC.Ecoli.models[[13]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(Turbidity), data=WC1)
+
+WC.Ecoli.models[[14]]  <- lm( E_coli_MPN ~ scale(SPC) + scale(Temp) , data=WC1)
+WC.Ecoli.models[[15]]  <- lm( E_coli_MPN ~ scale(H) + scale(Temp), data=WC1)
+WC.Ecoli.models[[16]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(Temp), data=WC1)
+WC.Ecoli.models[[17]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(Temp), data=WC1)
+WC.Ecoli.models[[18]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(Temp), data=WC1)
+
+WC.Ecoli.models[[19]]  <- lm( E_coli_MPN ~ scale(H)+ scale(SPC), data=WC1)
+WC.Ecoli.models[[20]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(SPC), data=WC1)
+WC.Ecoli.models[[21]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(SPC), data=WC1)
+WC.Ecoli.models[[22]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(SPC), data=WC1)
+
+WC.Ecoli.models[[23]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(H), data=WC1)
+WC.Ecoli.models[[24]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(H), data=WC1)
+WC.Ecoli.models[[25]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(H), data=WC1)
+
+
+Mods.WC.Ecoli <- paste("model", 1:length(WC.Ecoli.models), sep = " ")
+aictab(cand.set = WC.Ecoli.models, modnames = Mods.WC.Ecoli, sort = TRUE)
+
+summary(WC.Ecoli.models[[25]])
+summary(WC.Ecoli.models[[7]])
+summary(WC.Ecoli.models[[13]])
+plot(E_coli_MPN ~ Flow_day + H + SPC, data = WC1)
+```
+##LMER
+```{r lmer}
+
+WC1 <- subset(WC, E_coli_MPN != 0)
+print(WC1)
+
+lmer <- lmer(E_coli_MPN ~ scale(Turbidity) + 
+               scale(Temp) +
+               scale(SPC) + 
+               scale(H) +
+               scale(Rain_cm) + 
+               scale(Flow_max) +
+               #scale(Prev_site) +
+               scale(Prev_date) +
+               (1 | Site) +
+               (1 | Month),
+             data = WC1, REML = FALSE, lmerControl(optCtrl = list(maxfun=20000)))
+
+#control = na.action = "na.fail"
+
+lmer <- lmer(E_coli_MPN ~ scale(Flow_day) +
+               scale(H) +
+               (1 | Site)  +
+               (1 | Month),
+             data = WC1, REML = FALSE, lmerControl(optCtrl = list(maxfun=20000)))
+
+lmer
+
+confint(lmer)
+random.effects(lmer)
+
+adonis(E_coli_MPN ~ Site, data = WC1)
+
+dredge <- dredge(lmer)
+
+
+r.squaredGLMM(lmer)
+# this is the r2 of your whole model
+
+r.squaredGLMM(lmer(E_coli_MPN ~ scale(H) + scale(Temp) + (1|Site), data = WC1, REML=FALSE))
+# the r2 of the top model
+```
+
+##ANOVA
+```{r anova}
+
+head(WC1)
+
+WC1 <- WC1 %>% convert_as_factor(Site, Date)
+head(WC1)
+
+WC1 %>%
+  group_by(Site) %>%
+  identify_outliers(E_coli_MPN)
+
+WC1 %>%
+  group_by(Site) %>%
+  shapiro_test(E_coli_MPN)
+
+ggqqplot(WC1, "E_coli_MPN", facet.by = "Site")
+
+res.aov <- anova_test(data = WC1, dv = E_coli_MPN, wid = Month, within = Site)
+
+get_anova_table(res.aov)
+
+
+
+```
+
+
