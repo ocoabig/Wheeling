@@ -2,13 +2,15 @@
 title: "site by site"
 author: "Abigail O'Connor"
 date: "10/5/2020"
-output: html_document
-editor_options: 
-  chunk_output_type: inline
+output:
+  word_document: default
+  html_document: default
+editor_options:
+  chunk_output_type: console
 ---
 
-
 ```{r setup, include=FALSE}
+
 knitr::opts_chunk$set(echo = TRUE)
 
 #tmp <- installed.packages()
@@ -25,7 +27,8 @@ knitr::opts_chunk$set(echo = TRUE)
 ##setup
 ```{r library}
 Wheeling_Creek_Data_Copy <- read.csv(file.choose(), stringsAsFactors = TRUE)
-#sites <- read.csv(file.choose(), stringsAsFactors = TRUE)
+head(Wheeling_Creek_Data_Copy)
+
 library(usdm)
 library(ggplot2)
 library(ggmap)
@@ -40,10 +43,15 @@ library(car)
 library(tidyverse)
 library(ggpubr)
 library(rstatix)
+library(cowplot)
+library(coefplot)
+library(lmerTest)
+library(sjPlot)
+
 ```
 
 ```{r}
-WCD <- Wheeling_Creek_Data_Copy[c(1:444),c(1:10,12:14,20:24)]
+#WCD <- Wheeling_Creek_Data_Copy[c(1:444),c(1:10,12:14,20:24)]
 WC <- Wheeling_Creek_Data_Copy
 RB <- subset(Wheeling_Creek_Data_Copy, Wheeling_Creek_Data_Copy$Site == "Ranch Bar")
 CH <- subset(Wheeling_Creek_Data_Copy, Wheeling_Creek_Data_Copy$Site == "Cricket Hollow")
@@ -58,8 +66,41 @@ FN <- subset(Wheeling_Creek_Data_Copy, Wheeling_Creek_Data_Copy$Site == "Fulton"
 TG <- subset(Wheeling_Creek_Data_Copy, Wheeling_Creek_Data_Copy$Site == "Tunnel Green")
 MH <- subset(Wheeling_Creek_Data_Copy, Wheeling_Creek_Data_Copy$Site == "Mouth")
 
-```
+print(WC)
 
+rec <- subset(Wheeling_Creek_Data_Copy, Season == "Rec")
+off <- subset(Wheeling_Creek_Data_Copy, Season == "Non-rec")
+
+```
+##flow
+```{r flow}
+
+a <- ggplot(data = RB, aes(x = Date, y = Flow, group = Site)) +
+  geom_point() +
+  #geom_hline(yintercept = 235, linetype = 1) +
+  geom_line() +
+  xlab("Date") +
+  ylab("Flow (cubic meters per second)") +
+  #scale_y_continuous(trans='log10') +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  labs(title = "Average Weekly Flow")
+
+b <- ggplot(data = RB, aes(x = Date, y = Flow_mean, group = Site)) +
+  geom_point() +
+  #geom_hline(yintercept = 235, linetype = 1) +
+  geom_line() +
+  xlab("Date") +
+  ylab("Flow (cubic feet per second)") +
+  #scale_y_continuous(trans='log10') +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) +
+  labs(title = "Average Weekly Flow")
+
+plot_grid(a, b, labels = c('A', 'B'), label_size = 12, ncol = 1)
+
+
+```
 ##VIF
 ```{r}
 
@@ -92,7 +133,7 @@ ggplotRegression <- function(fit){
 ggplotRegression(lm(SPC ~ Cl, data = RB))
 
 
-RBVIF <- data.frame(RB$SPC, RB$H, RB$Turbidity, RB$Temp, RB$Rain, RB$Flow_max, RB$Prev_date)
+RBVIF <- data.frame(RB$SPC, RB$H, RB$Turbidity, RB$Temp, RB$Rain, RB$Flow_max, RB$Prev_date, RB$CSO, RB$Developed_LMH, RB$Cl)
 
 RBstep <- vifstep(RBVIF, th = 10)
 RBstep
@@ -164,9 +205,16 @@ wcstep
 
 ##RB
 ```{r}
-RB[complete.cases(RB), ]
-RB1 <- RB[complete.cases(RB), ]
-RB1 <-RB
+RB3 <- subset(RB, select = -c(Prev_site))
+
+RB3[complete.cases(RB3), ]
+RB2 <- RB3[complete.cases(RB3), ]
+
+print(RB2)
+
+RB1 <- subset(RB2, Season == "Rec")
+#RB1 <- subset(RB2, Season == "Non-rec")
+print(RB1)
 
 Ranch.Ecoli.models<-list()
 Ranch.Ecoli.models[[1]]  <- lm( E_coli_MPN ~ scale(Turbidity) , data=RB1)
@@ -199,82 +247,81 @@ Ranch.Ecoli.models[[23]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(H), data=RB1)
 Ranch.Ecoli.models[[24]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(H), data=RB1)
 Ranch.Ecoli.models[[25]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(H), data=RB1)
 
-Ranch.Ecoli.models[[26]]  <- lm( E_coli_MPN ~ scale(CSO), data=RB1)
-Ranch.Ecoli.models[[27]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Developed_LMH), data=RB1)
-#Ranch.Ecoli.models[[28]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Nutrients), data=RB1)
-Ranch.Ecoli.models[[29]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Turbidity), data=RB1)
-Ranch.Ecoli.models[[30]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Temp),data=RB1)
-Ranch.Ecoli.models[[31]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(SPC), data=RB1)
-Ranch.Ecoli.models[[32]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(H), data=RB1)
-Ranch.Ecoli.models[[33]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Rain), data=RB1)
-Ranch.Ecoli.models[[34]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Flow_max), data=RB1)
-Ranch.Ecoli.models[[35]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Flow_day), data=RB1)
-Ranch.Ecoli.models[[36]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Turbidity) , data=RB1)
-Ranch.Ecoli.models[[37]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Temp),data=RB1)
-Ranch.Ecoli.models[[38]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(SPC), data=RB1)
-Ranch.Ecoli.models[[39]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(H), data=RB1)
-Ranch.Ecoli.models[[40]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Rain), data=RB1)
-Ranch.Ecoli.models[[41]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Flow_max), data=RB1)
-Ranch.Ecoli.models[[42]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Flow_day), data=RB1)
-
-Ranch.Ecoli.models[[43]]  <- lm( E_coli_MPN ~ scale(Developed_LMH), data=RB1)
-#Ranch.Ecoli.models[[44]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(Nutrients), data=RB1)
-Ranch.Ecoli.models[[45]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(Turbidity), data=RB1)
-Ranch.Ecoli.models[[46]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(Temp),data=RB1)
-Ranch.Ecoli.models[[47]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(SPC), data=RB1)
-Ranch.Ecoli.models[[48]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(H), data=RB1)
-Ranch.Ecoli.models[[49]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(Rain), data=RB1)
-Ranch.Ecoli.models[[50]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(Flow_max), data=RB1)
-Ranch.Ecoli.models[[51]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(Flow_day), data=RB1)
-Ranch.Ecoli.models[[52]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(Turbidity) , data=RB1)
-Ranch.Ecoli.models[[53]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(Temp),data=RB1)
-Ranch.Ecoli.models[[54]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(SPC), data=RB1)
-Ranch.Ecoli.models[[55]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(H), data=RB1)
-Ranch.Ecoli.models[[56]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(Rain), data=RB1)
-Ranch.Ecoli.models[[57]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(Flow_max), data=RB1)
-Ranch.Ecoli.models[[58]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(Flow_day), data=RB1)
-
-#Ranch.Ecoli.models[[59]]  <- lm( E_coli_MPN ~ scale(Nutrients), data=RB1)
-#Ranch.Ecoli.models[[60]]  <- lm( E_coli_MPN ~ scale(Nutrients) + scale(Turbidity), data=RB1)
-#Ranch.Ecoli.models[[61]]  <- lm( E_coli_MPN ~ scale(Nutrients) + scale(Temp),data=RB1)
-#Ranch.Ecoli.models[[62]]  <- lm( E_coli_MPN ~ scale(Nutrients) + scale(SPC), data=RB1)
-#Ranch.Ecoli.models[[63]]  <- lm( E_coli_MPN ~ scale(Nutrients) + scale(H), data=RB1)
-#Ranch.Ecoli.models[[64]]  <- lm( E_coli_MPN ~ scale(Nutrients) + scale(Rain), data=RB1)
-#Ranch.Ecoli.models[[65]]  <- lm( E_coli_MPN ~ scale(Nutrients) + scale(Flow_max), data=RB1)
-#Ranch.Ecoli.models[[66]]  <- lm( E_coli_MPN ~ scale(Nutrients) + scale(Flow_day), data=RB1)
-#Ranch.Ecoli.models[[67]]  <- lm( E_coli_MPN ~ scale(Nutrients) + scale(Turbidity) , data=RB1)
-#Ranch.Ecoli.models[[68]]  <- lm( E_coli_MPN ~ scale(Nutrients) + scale(Temp),data=RB1)
-#Ranch.Ecoli.models[[69]]  <- lm( E_coli_MPN ~ scale(Nutrients) + scale(SPC), data=RB1)
-#Ranch.Ecoli.models[[70]]  <- lm( E_coli_MPN ~ scale(Nutrients) + scale(H), data=RB1)
-#Ranch.Ecoli.models[[71]]  <- lm( E_coli_MPN ~ scale(Nutrients) + scale(Rain), data=RB1)
-#Ranch.Ecoli.models[[72]  <- lm( E_coli_MPN ~ scale(Nutrients) + scale(Flow_max), data=RB1)
-#Ranch.Ecoli.models[[73]]  <- lm( E_coli_MPN ~ scale(Nutrients) + scale(Flow_day), data=RB1)
 
 Mods.Ranch.Ecoli <- paste("model", 1:length(Ranch.Ecoli.models), sep = " ")
 ##generate AICc table from candidate models so that you can control the model
 
 aictab(cand.set = Ranch.Ecoli.models, modnames = Mods.Ranch.Ecoli, sort = TRUE)
 
+#all AIC values under 2 and one over, at least 5
+#add cl and do and run confint with all RB r data file
 Ranch.13 <- lm(E_coli_MPN ~ scale(Flow_day)+ scale(Turbidity), data=RB1)
-Ranch.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(H)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_day)+ scale(Prev_date), data=RB1)
-confint(Ranch.13)
 
+#drop outlier
+RB4 <- RB[-c(32), ]
+RB5 <- RB4[-c(20), ]
+View(RB4)
+
+Ranch.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(H)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_day) + scale(DO) + scale(Cl) + scale(Prev_date), data=RB)
+confint(Ranch.all)
+plot(Ranch.all)
+summary(Ranch.all)
+
+RB1 <- subset(RB, Season == "Rec")
+RB2 <- subset(RB, Season == "Non-rec")
+
+Ranch.hmm <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = RB)
+Ranch.hmm <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = RB1)
+Ranch.hmm <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = RB2)
+
+coefplot(Ranch.hmm, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Title"))
+
+crb <- confint(Ranch.hmm)
+confint(Ranch.hmm)
+
+qqPlot(Ranch.hmm)
+plot(Ranch.hmm)
+
+summary(Ranch.hmm)
+
+
+
+  
+
+boxplot(RB$E_coli_MPN, data = RB)
+
+DPcaterpillar(crb)
+
+summary(Ranch.Ecoli.models[[2]])
+summary(Ranch.Ecoli.models[[4]])
+summary(Ranch.Ecoli.models[[7]])
 summary(Ranch.Ecoli.models[[13]])
-summary(Ranch.Ecoli.models[[25]])
-summary(Ranch.Ecoli.models[[11]])
-plot(E_coli_MPN ~ Flow_day + Turbidity + H, data = RB1)
+summary(Ranch.Ecoli.models[[1]])
 
-library(sjPlot)
-library(sjmisc)
+plot(E_coli_MPN ~ Max_Min, data = WC)
 
-sjp.lmer(Ranch13, y.offset = .4)
 
-ggCaterpillar(Ranch13, QQ = TRUE, likeDotplot = TRUE)
+spc.cl <- lm(SPC ~ Cl, data = RB)
+summary(spc.cl)
+flow <-lm(Flow_day ~ Flow_max, data = RB)
+summary(flow)
 
+r.squaredGLMM(Ranch.Ecoli.models[[13]])
+
+print(RB)
 ```
 ##CH
 ```{r Cricket}
-CH1 <-CH
+CH[complete.cases(CH), ]
+CH2 <- CH[complete.cases(CH), ]
+
+#CH1 <- subset(CH2, Season == "Rec")
+CH1 <- subset(CH2, Season == "Non-rec")
 
 Cricket.Ecoli.models<-list()
 Cricket.Ecoli.models[[1]]  <- lm( E_coli_MPN ~ scale(Turbidity) , data=CH1)
@@ -308,25 +355,53 @@ Cricket.Ecoli.models[[24]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(H), data=
 Cricket.Ecoli.models[[25]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(H), data=CH1)
 
 
+
 Mods.Cricket.Ecoli <- paste("model", 1:length(Cricket.Ecoli.models), sep = " ")
 ##generate AICc table from candidate models so that you can control the model
 aictab(cand.set = Cricket.Ecoli.models, modnames = Mods.Cricket.Ecoli, sort = TRUE)
 
-Cricket.13 <- lm(E_coli_MPN ~ scale(Flow_day)+ scale(Turbidity), data=CH1)
-Cricket.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(H)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_day)+ scale(Prev_date) + scale(Prev_site), data=CH1)
-confint(Cricket.13)
+CH4 <- CH[-c(20), ]
+CH5 <- CH4[-c(33), ]
+View(CH4)
+
+Cricket.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_day) + scale(DO) + scale(Prev_date) + scale(Cl), data=CH4)
+confint(Cricket.all)
+plot(Cricket.all)
+
+CH1 <- subset(CH, Season == "Rec")
+CH1 <- subset(CH, Season == "Non-rec")
+
+Cricket.hmm <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = CH1)
+
+confint(Cricket.hmm)
+qqPlot(Cricket.hmm)
+
+summary(Cricket.hmm)
+
+coefplot(Cricket.hmm, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5),
+         lwdOuter = 1, pointSize = 3) +
+  theme_classic() + 
+  theme(axis.text.x = element_text(size = 5)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Cricket Hollow Off"))
+
 
 
 summary(Cricket.Ecoli.models[[13]])
-summary(Cricket.Ecoli.models[[25]])
-summary(Cricket.Ecoli.models[[10]])
-plot(E_coli_MPN ~ Flow_day + Turbidity + H, data = CH1)
+summary(Cricket.Ecoli.models[[11]])
+summary(Cricket.Ecoli.models[[1]])
+plot(E_coli_MPN ~ Flow_day + Turbidity, data = CH1)
 
 
 ```
 ##GR
 ```{r Grandstaff}
-GR1 <-GR
+GR[complete.cases(GR), ]
+GR2 <- GR[complete.cases(GR), ]
+
+#GR1 <- subset(GR2, Season == "Rec")
+GR1 <- subset(GR2, Season == "Non-rec")
 
 Grandstaff.Ecoli.models<-list()
 Grandstaff.Ecoli.models[[1]]  <- lm( E_coli_MPN ~ scale(Turbidity) , data=GR1)
@@ -359,24 +434,49 @@ Grandstaff.Ecoli.models[[23]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(H), data=G
 Grandstaff.Ecoli.models[[24]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(H), data=GR1)
 Grandstaff.Ecoli.models[[25]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(H), data=GR1)
 
-
 Mods.Grandstaff.Ecoli <- paste("model", 1:length(Grandstaff.Ecoli.models), sep = " ")
 ##generate AICc table from candidate models so that you can control the model
 aictab(cand.set = Grandstaff.Ecoli.models, modnames = Mods.Grandstaff.Ecoli, sort = TRUE)
 
-Grand.25 <- lm(E_coli_MPN ~ scale(Flow_day)+ scale(H), data=GR1)
-Grand.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(H)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_day)+ scale(Prev_date), data=GR1)
-confint(Grand.25)
+GR4 <- GR[-c(20), ]
+View(GR4)
 
+Grandstaff.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(H)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_day) + scale(Prev_date) + scale(Cl) + scale(DO), data=GR)
+confint(Grandstaff.all)
+qqPlot(Grandstaff.all)
+
+GR1 <- subset(GR, Season == "Rec")
+GR1 <- subset(GR, Season == "Non-rec")
+
+Grandstaff.hmm <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = GR1)
+confint(Grandstaff.hmm)
+summary(Grandstaff.hmm)
+qqPlot(Grandstaff.hmm)
+
+coefplot(Grandstaff.hmm, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5),
+         lwdOuter = 1, pointSize = 3) +
+  theme(element_text(size = 12)) +
+  theme(element_text(size = 12)) +
+  theme_classic() + 
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Grandstaff Run Off"))
+
+
+
+summary(Grandstaff.Ecoli.models[[7]])
 summary(Grandstaff.Ecoli.models[[25]])
 summary(Grandstaff.Ecoli.models[[18]])
-summary(Grandstaff.Ecoli.models[[13]])
 plot(E_coli_MPN ~ Flow_day + H + Temp, data = GR1)
 
 ```
 ##BR
 ```{r Britt}
-BR1 <-BR
+BR[complete.cases(BR), ]
+BR2 <- BR[complete.cases(BR), ]
+
+#BR1 <- subset(BR2, Season == "Rec")
+BR1 <- subset(BR2, Season == "Non-rec")
 
 Britt.Ecoli.models<-list()
 Britt.Ecoli.models[[1]]  <- lm( E_coli_MPN ~ scale(Turbidity) , data=BR1)
@@ -414,20 +514,37 @@ Mods.Britt.Ecoli <- paste("model", 1:length(Britt.Ecoli.models), sep = " ")
 ##generate AICc table from candidate models so that you can control the model
 aictab(cand.set = Britt.Ecoli.models, modnames = Mods.Britt.Ecoli, sort = TRUE)
 
-Britt.25 <- lm(E_coli_MPN ~ scale(Flow_day)+ scale(H), data=BR1)
-Britt.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(H)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_day)+ scale(Prev_date), data=BR1)
-confint(Britt.25)
+BR4 <- BR[-c(20), ]
+BR5 <- BR4[-c(33), ]
+BR6 <- BR5[-c(20), ]
+View(BR)
 
-summary(Britt.Ecoli.models[[25]])
-summary(Britt.Ecoli.models[[18]])
+Britt.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(H)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_day) + scale(Prev_date) + scale(Cl) +scale(DO), data=BR4)
+confint(Britt.all)
+qqPlot(Britt.all)
+
+BR1 <- subset(BR, Season == "Rec")
+BR1 <- subset(BR, Season == "Non-rec")
+
+Britt.hmm <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = BR1)
+confint(Britt.hmm)
+summary(Britt.hmm)
+qqPlot(Britt.hmm)
+
 summary(Britt.Ecoli.models[[13]])
+summary(Britt.Ecoli.models[[7]])
+summary(Britt.Ecoli.models[[3]])
 plot(E_coli_MPN ~ Flow_day + H + Temp, data = BR1)
 
 ```
 ##CL
 
 ```{r County}
-CL1 <-CL
+CL[complete.cases(CL), ]
+CL2 <- CL[complete.cases(CL), ]
+
+CL1 <- subset(CL2, Season == "Rec")
+CL1 <- subset(CL2, Season == "Non-rec")
 
 County.Ecoli.models<-list()
 County.Ecoli.models[[1]]  <- lm( E_coli_MPN ~ scale(Turbidity) , data=CL1)
@@ -461,23 +578,40 @@ County.Ecoli.models[[24]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(H), data=C
 County.Ecoli.models[[25]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(H), data=CL1)
 
 
+
 Mods.County.Ecoli <- paste("model", 1:length(County.Ecoli.models), sep = " ")
 aictab(cand.set = County.Ecoli.models, modnames = Mods.County.Ecoli, sort = TRUE)
 
-Count.25 <- lm(E_coli_MPN ~ scale(Flow_day)+ scale(H), data=CL1)
-Count.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(H)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_day)+ scale(Prev_date), data=CL1)
-confint(Count.25)
+CL4 <- CL[-c(20), ]
+CL5 <- CL4[-c(38), ]
+View(CL5)
 
-summary(County.Ecoli.models[[25]])
-summary(County.Ecoli.models[[18]])
+County.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(H)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_day) + scale(Prev_date) + scale(Cl) + scale(DO), data=CL5)
+confint(County.all)
+qqPlot(County.all)
+
+CL1 <- subset(CL, Season == "Rec")
+CL1 <- subset(CL, Season == "Non-rec")
+
+County.hmm <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = CL1)
+confint(County.hmm)
+summary(County.hmm)
+qqPlot(County.hmm)
+
 summary(County.Ecoli.models[[13]])
+summary(County.Ecoli.models[[12]])
+summary(County.Ecoli.models[[1]])
 plot(E_coli_MPN ~ Flow_day + H + Turbidity, data = CL1)
 ```
 
 ##EG
 
 ```{r Elm}
-EG1 <-EG
+EG[complete.cases(EG), ]
+EG2 <- EG[complete.cases(EG), ]
+
+EG1 <- subset(EG2, Season == "Rec")
+#EG1 <- subset(EG2, Season == "Non-rec")
 
 Elm.Ecoli.models<-list()
 Elm.Ecoli.models[[1]]  <- lm( E_coli_MPN ~ scale(Turbidity) , data=EG1)
@@ -511,22 +645,38 @@ Elm.Ecoli.models[[24]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(H), data=EG1)
 Elm.Ecoli.models[[25]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(H), data=EG1)
 
 
+
 Mods.Elm.Ecoli <- paste("model", 1:length(Elm.Ecoli.models), sep = " ")
 aictab(cand.set = Elm.Ecoli.models, modnames = Mods.Elm.Ecoli, sort = TRUE)
 
-Elm.25 <- lm(E_coli_MPN ~ scale(Flow_day)+ scale(H), data=EG1)
-Elm.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(H)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_day)+ scale(Prev_date), data=EG1)
-confint(Elm.25)
+EG4 <- EG[-c(35), ]
+View(EG)
 
-summary(Elm.Ecoli.models[[25]])
-summary(Elm.Ecoli.models[[15]])
-summary(Elm.Ecoli.models[[18]])
+Elm.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(H)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_day) + scale(Prev_date) + scale(Cl) +scale(DO), data=EG4)
+confint(Elm.all)
+qqPlot(Elm.all)
+
+EG1 <- subset(EG, Season == "Rec")
+EG1 <- subset(EG, Season == "Non-rec")
+
+Elm.hmm <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = EG1)
+confint(Elm.hmm)
+summary(Elm.hmm)
+qqPlot(Elm.hmm)
+
+summary(Elm.Ecoli.models[[7]])
+summary(Elm.Ecoli.models[[6]])
+summary(Elm.Ecoli.models[[2]])
 plot(E_coli_MPN ~ Flow_day + H + Temp, data = EG1)
 
 ```
 ##JR
 ```{r Jr}
-JR1 <-JR
+JR[complete.cases(JR), ]
+JR2 <- JR[complete.cases(JR), ]
+
+#JR1 <- subset(JR2, Season == "Rec")
+JR1 <- subset(JR2, Season == "Non-rec")
 
 Jr.Ecoli.models<-list()
 Jr.Ecoli.models[[1]]  <- lm( E_coli_MPN ~ scale(Turbidity) , data=JR1)
@@ -560,22 +710,42 @@ Jr.Ecoli.models[[24]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(H), data=JR1)
 Jr.Ecoli.models[[25]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(H), data=JR1)
 
 
+
 Mods.Jr.Ecoli <- paste("model", 1:length(Jr.Ecoli.models), sep = " ")
 aictab(cand.set = Jr.Ecoli.models, modnames = Mods.Jr.Ecoli, sort = TRUE)
 
-Jr.25 <- lm(E_coli_MPN ~ scale(Flow_day)+ scale(H), data=JR1)
-Jr.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(H)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_day)+ scale(Prev_date), data=JR1)
-confint(Jr.25)
+JR4 <- JR[-c(34), ]
+JR5 <- JR4[-c(20), ]
+JR6 <- JR5[-c(31), ]
+View(JR5)
 
-summary(Jr.Ecoli.models[[25]])
+JR.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(H)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_day) + scale(Prev_date) + scale(Cl) + scale(DO), data=JR)
+confint(JR.all)
+qqPlot(JR.all)
+
+JR1 <- subset(JR, Season == "Rec")
+JR1 <- subset(JR, Season == "Non-rec")
+
+JR.hmm <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = JR1)
+confint(JR.hmm)
+summary(JR.hmm)
+qqPlot(JR.hmm)
+
+summary(Jr.Ecoli.models[[8]])
+summary(Jr.Ecoli.models[[11]])
+summary(Jr.Ecoli.models[[13]])
 summary(Jr.Ecoli.models[[15]])
-summary(Jr.Ecoli.models[[18]])
 plot(E_coli_MPN ~ Flow_day + H + Temp, data = JR1)
 ```
 
 ##WA
 ```{r WA}
-WA1 <-WA
+WA[complete.cases(WA), ]
+WA2 <- WA[complete.cases(WA), ]
+
+WA1 <- subset(WA2, Season == "Non-rec")
+WA1 <- subset(WA2, Season == "Rec")
+
 
 WA.Ecoli.models<-list()
 WA.Ecoli.models[[1]]  <- lm( E_coli_MPN ~ scale(Turbidity) , data=WA1)
@@ -585,46 +755,66 @@ WA.Ecoli.models[[4]]  <- lm( E_coli_MPN ~ scale(H), data=WA1)
 WA.Ecoli.models[[5]]  <- lm( E_coli_MPN ~ scale(Rain), data=WA1)
 WA.Ecoli.models[[6]]  <- lm( E_coli_MPN ~ scale(Flow_max), data=WA1)
 WA.Ecoli.models[[7]]  <- lm( E_coli_MPN ~ scale(Flow_day), data=WA1)
-
 WA.Ecoli.models[[8]]  <- lm( E_coli_MPN ~ scale(Temp)+ scale(Turbidity) , data=WA1)
 WA.Ecoli.models[[9]]  <- lm( E_coli_MPN ~ scale(SPC)+ scale(Turbidity) , data=WA1)
 WA.Ecoli.models[[10]]  <- lm( E_coli_MPN ~ scale(H)+ scale(Turbidity) , data=WA1)
 WA.Ecoli.models[[11]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(Turbidity) , data=WA1)
 WA.Ecoli.models[[12]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(Turbidity) , data=WA1)
 WA.Ecoli.models[[13]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(Turbidity), data=WA1)
-
 WA.Ecoli.models[[14]]  <- lm( E_coli_MPN ~ scale(SPC) + scale(Temp) , data=WA1)
 WA.Ecoli.models[[15]]  <- lm( E_coli_MPN ~ scale(H) + scale(Temp), data=WA1)
 WA.Ecoli.models[[16]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(Temp), data=WA1)
 WA.Ecoli.models[[17]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(Temp), data=WA1)
 WA.Ecoli.models[[18]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(Temp), data=WA1)
-
 WA.Ecoli.models[[19]]  <- lm( E_coli_MPN ~ scale(H)+ scale(SPC), data=WA1)
 WA.Ecoli.models[[20]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(SPC), data=WA1)
 WA.Ecoli.models[[21]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(SPC), data=WA1)
 WA.Ecoli.models[[22]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(SPC), data=WA1)
-
 WA.Ecoli.models[[23]]  <- lm( E_coli_MPN ~ scale(Rain)+ scale(H), data=WA1)
 WA.Ecoli.models[[24]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(H), data=WA1)
 WA.Ecoli.models[[25]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(H), data=WA1)
 
 
+
 Mods.WA.Ecoli <- paste("model", 1:length(WA.Ecoli.models), sep = " ")
 aictab(cand.set = WA.Ecoli.models, modnames = Mods.WA.Ecoli, sort = TRUE)
 
-Wash.25 <- lm(E_coli_MPN ~ scale(Flow_day)+ scale(H), data=WA1)
-Wash.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(H)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_day)+ scale(Prev_date), data=WA1)
-confint(Wash.25)
+WA4 <- WA[-c(12), ]
+WA5 <- WA4[-c(28), ]
+WA6 <- WA5[-c(15), ]
+WA7 <- WA6[-c(25), ]
+View(WA5)
 
-summary(WA.Ecoli.models[[25]])
+WA.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(H)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_day) + scale(Prev_date) + scale(Cl) +scale(DO), data=WA)
+confint(WA.all)
+qqPlot(WA.all)
+
+WA1 <- subset(WA, Season == "Non-rec")
+WA1 <- subset(WA, Season == "Rec")
+
+print(WA1)
+
+WA.hmm <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = WA1)
+confint(WA.hmm)
+summary(WA.hmm)
+qqPlot(WA.hmm)
+
+summary(WA.Ecoli.models[[11]])
+summary(WA.Ecoli.models[[5]])
 summary(WA.Ecoli.models[[7]])
-summary(WA.Ecoli.models[[13]])
+summary(WA.Ecoli.models[[11]])
+summary(WA.Ecoli.models[[7]])
+summary(WA.Ecoli.models[[5]])
 plot(E_coli_MPN ~ Flow_day + H + Turbidity, data = WA1)
 ```
 
 ##KR
 ```{r KR}
-KR1 <-KR
+KR[complete.cases(KR), ]
+KR2 <- KR[complete.cases(KR), ]
+
+#KR1 <- subset(KR2, Season == "Rec")
+KR1 <- subset(KR2, Season == "Non-rec")
 
 KR.Ecoli.models<-list()
 KR.Ecoli.models[[1]]  <- lm( E_coli_MPN ~ scale(Turbidity) , data=KR1)
@@ -658,22 +848,42 @@ KR.Ecoli.models[[24]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(H), data=KR1)
 KR.Ecoli.models[[25]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(H), data=KR1)
 
 
+
+
 Mods.KR.Ecoli <- paste("model", 1:length(KR.Ecoli.models), sep = " ")
 aictab(cand.set = KR.Ecoli.models, modnames = Mods.KR.Ecoli, sort = TRUE)
 
-Kroger.25 <- lm(E_coli_MPN ~ scale(Flow_day)+ scale(H), data=KR1)
-Kroger.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(H)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_day)+ scale(Prev_date), data=KR1)
-confint(Kroger.25)
+KR4 <- KR[-c(34), ]
+KR5 <- KR4[-c(32), ]
+View(KR4)
 
-summary(KR.Ecoli.models[[25]])
-summary(KR.Ecoli.models[[7]])
-summary(KR.Ecoli.models[[13]])
+KR.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(H)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_day) + scale(Prev_date) + scale(Cl) + scale(DO), data=KR5)
+confint(KR.all)
+qqPlot(KR.all)
+
+KR1 <- subset(KR, Season == "Rec")
+KR1 <- subset(KR, Season == "Non-rec")
+
+KR.hmm <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) +scale(Flow_mean) + scale (H), data = KR1)
+confint(KR.hmm)
+summary(KR.hmm)
+qqPlot(KR.hmm)
+
+
++ scale(Flow_day)
+summary(KR.Ecoli.models[[4]])
+summary(KR.Ecoli.models[[24]])
+summary(KR.Ecoli.models[[6]])
 plot(E_coli_MPN ~ Flow_day + H + Turbidity, data = KR1)
 ```
 
 ##FN
 ```{r FN}
-FN1 <-FN
+FN[complete.cases(FN), ]
+FN2 <- FN[complete.cases(FN), ]
+
+#FN1 <- subset(FN2, Season == "Rec")
+FN1 <- subset(FN2, Season == "Non-rec")
 
 FN.Ecoli.models<-list()
 FN.Ecoli.models[[1]]  <- lm( E_coli_MPN ~ scale(Turbidity) , data=FN1)
@@ -710,18 +920,37 @@ FN.Ecoli.models[[25]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(H), data=FN1)
 Mods.FN.Ecoli <- paste("model", 1:length(FN.Ecoli.models), sep = " ")
 aictab(cand.set = FN.Ecoli.models, modnames = Mods.FN.Ecoli, sort = TRUE)
 
-Fulton.25 <- lm(E_coli_MPN ~ scale(Flow_day)+ scale(H), data=FN1)
-Fulton.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(H)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_day)+ scale(Prev_date), data=FN1)
-confint(Fulton.25)
+FN4 <- FN[-c(33), ]
+FN5 <- FN4[-c(41), ]
+FN6 <- FN5[-c(31), ]
+FN7 <- FN6[-c(16), ]
+View(FN6)
 
-summary(FN.Ecoli.models[[25]])
-summary(FN.Ecoli.models[[7]])
-summary(FN.Ecoli.models[[13]])
+FN.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(H)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_mean) + scale(Prev_date) + scale(Cl) + scale(DO), data=FN)
+confint(FN.all)
+qqPlot(FN.all)
+
+FN1 <- subset(FN, Season == "Rec")
+FN1 <- subset(FN, Season == "Non-rec")
+
+FN.hmm <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = FN1)
+confint(FN.hmm)
+summary(FN.hmm)
+qqPlot(FN.hmm)
+
+summary(FN.Ecoli.models[[22]])
+summary(FN.Ecoli.models[[6]])
+summary(FN.Ecoli.models[[5]])
 plot(E_coli_MPN ~ Flow_day + H + Turbidity, data = FN1)
 ```
 ##TG
 ```{r TG}
-TG1 <-TG
+TG[complete.cases(TG), ]
+TG2 <- TG[complete.cases(TG), ]
+
+
+#TG1 <- subset(TG2, Season == "Rec")
+TG1 <- subset(TG2, Season == "Non-rec")
 
 TG.Ecoli.models<-list()
 TG.Ecoli.models[[1]]  <- lm( E_coli_MPN ~ scale(Turbidity) , data=TG1)
@@ -758,19 +987,35 @@ TG.Ecoli.models[[25]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(H), data=TG1)
 Mods.TG.Ecoli <- paste("model", 1:length(TG.Ecoli.models), sep = " ")
 aictab(cand.set = TG.Ecoli.models, modnames = Mods.TG.Ecoli, sort = TRUE)
 
-Tunnel.25 <- lm(E_coli_MPN ~ scale(Flow_day)+ scale(H), data=TG1)
-Tunnel.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(H)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_day)+ scale(Prev_date), data=TG1)
-confint(Tunnel.25)
+TG4 <- TG[-c(31), ]
+TG5 <- TG4[-c(24), ]
+View(TG4)
 
-summary(TG.Ecoli.models[[25]])
-summary(TG.Ecoli.models[[7]])
-summary(TG.Ecoli.models[[13]])
+TG.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(H)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_day) + scale(Prev_date) + scale(Cl) + scale(DO), data=TG5)
+confint(TG.all)
+qqPlot(TG.all)
+
+TG1 <- subset(TG, Season == "Rec")
+TG1 <- subset(TG, Season == "Non-rec")
+
+TG.hmm <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = TG1)
+confint(TG.hmm)
+summary(TG.hmm)
+qqPlot(TG.hmm)
+
+summary(TG.Ecoli.models[[1]])
+summary(TG.Ecoli.models[[4]])
+summary(TG.Ecoli.models[[6]])
 plot(E_coli_MPN ~ Flow_day + H + SPC, data = TG1)
 ```
 
 ##MH
 ```{r MH}
-MH1 <-MH
+MH[complete.cases(MH), ]
+MH2 <- MH[complete.cases(MH), ]
+
+#MH1 <- subset(MH2, Season == "Rec")
+MH1 <- subset(MH2, Season == "Non-rec")
 
 MH.Ecoli.models<-list()
 MH.Ecoli.models[[1]]  <- lm( E_coli_MPN ~ scale(Turbidity) , data=MH1)
@@ -804,23 +1049,54 @@ MH.Ecoli.models[[24]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(H), data=MH1)
 MH.Ecoli.models[[25]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(H), data=MH1)
 
 
+
 Mods.MH.Ecoli <- paste("model", 1:length(MH.Ecoli.models), sep = " ")
 aictab(cand.set = MH.Ecoli.models, modnames = Mods.MH.Ecoli, sort = TRUE)
 
-Mouth.25 <- lm(E_coli_MPN ~ scale(Flow_day)+ scale(H), data=MH1)
-Mouth.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(H)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_day)+ scale(Prev_date), data=MH1)
-confint(Mouth.25)
+MH4 <- MH[-c(24), ]
+MH5 <- MH4[-c(28), ]
+View(MH)
 
-summary(MH.Ecoli.models[[25]])
-summary(MH.Ecoli.models[[7]])
-summary(MH.Ecoli.models[[13]])
+MH.all <- lm(E_coli_MPN ~ scale(SPC)+ scale(H)+ scale(Turbidity) + scale(Temp)+ scale(Rain) + scale(Flow_day) + scale(Prev_date) + scale(Cl) + scale(DO), data=MH5)
+confint(MH.all)
+qqPlot(MH.all)
+
+MH1 <- subset(MH, Season == "Rec")
+MH1 <- subset(MH, Season == "Non-rec")
+
+MH.hmm <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = MH1)
+confint(MH.hmm)
+summary(MH.hmm)
+qqPlot(WA.hmm)
+
+summary(Ranch.hmm)
+summary(Cricket.hmm)
+summary(Grandstaff.hmm)
+summary(Britt.hmm)
+summary(County.hmm)
+summary(Elm.hmm)
+summary(JR.hmm)
+summary(WA.hmm)
+summary(KR.hmm)
+summary(FN.hmm)
+summary(TG.hmm)
+summary(MH.hmm)
+
+summary(MH.Ecoli.models[[1]])
+summary(MH.Ecoli.models[[4]])
+summary(MH.Ecoli.models[[5]])
 plot(E_coli_MPN ~ Flow_day + H + SPC, data = MH1)
 ```
 ##WC
 ```{r WC}
+WC[complete.cases(WC), ]
+WC1 <- WC[complete.cases(WC), ]
+
 WC1 <- subset(WC, Site == "Ranch Bar" | Site == "Cricket Hollow" | Site == "Grandstaff Run" | Site == "Britt's Run" | Site == "County Line Bridge" | Site == "Elm Grove Park" | Site == "Junior Ave" | Site == "Washington" | Site == "Kroger" | Site == "Fulton" | Site == "Tunnel Green")
 
 print(WC1)
+
+
 
 WC.Ecoli.models<-list()
 WC.Ecoli.models[[1]]  <- lm( E_coli_MPN ~ scale(Turbidity) , data=WC1)
@@ -854,6 +1130,42 @@ WC.Ecoli.models[[24]]  <- lm( E_coli_MPN ~ scale(Flow_max)+ scale(H), data=WC1)
 WC.Ecoli.models[[25]]  <- lm( E_coli_MPN ~ scale(Flow_day)+ scale(H), data=WC1)
 
 
+WC.Ecoli.models[[26]]  <- lm( E_coli_MPN ~ scale(CSO), data=WC1)
+WC.Ecoli.models[[27]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Developed_LMH), data=WC1)
+#WC.Ecoli.models[[28]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Nutrients), data=WC1)
+WC.Ecoli.models[[29]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Turbidity), data=WC1)
+WC.Ecoli.models[[30]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Temp),data=WC1)
+WC.Ecoli.models[[31]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(SPC), data=WC1)
+WC.Ecoli.models[[32]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(H), data=WC1)
+WC.Ecoli.models[[33]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Rain), data=WC1)
+WC.Ecoli.models[[34]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Flow_max), data=WC1)
+WC.Ecoli.models[[35]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Flow_day), data=WC1)
+WC.Ecoli.models[[36]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Turbidity) , data=WC1)
+WC.Ecoli.models[[37]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Temp),data=WC1)
+WC.Ecoli.models[[38]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(SPC), data=WC1)
+WC.Ecoli.models[[39]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(H), data=WC1)
+WC.Ecoli.models[[40]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Rain), data=WC1)
+WC.Ecoli.models[[41]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Flow_max), data=WC1)
+WC.Ecoli.models[[42]]  <- lm( E_coli_MPN ~ scale(CSO) + scale(Flow_day), data=WC1)
+
+WC.Ecoli.models[[43]]  <- lm( E_coli_MPN ~ scale(Developed_LMH), data=WC1)
+#WC.Ecoli.models[[44]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(Nutrients), data=WC1)
+WC.Ecoli.models[[45]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(Turbidity), data=WC1)
+WC.Ecoli.models[[46]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(Temp),data=WC1)
+WC.Ecoli.models[[47]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(SPC), data=WC1)
+WC.Ecoli.models[[48]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(H), data=WC1)
+WC.Ecoli.models[[49]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(Rain), data=WC1)
+WC.Ecoli.models[[50]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(Flow_max), data=WC1)
+WC.Ecoli.models[[51]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(Flow_day), data=WC1)
+WC.Ecoli.models[[52]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(Turbidity) , data=WC1)
+WC.Ecoli.models[[53]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(Temp),data=WC1)
+WC.Ecoli.models[[54]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(SPC), data=WC1)
+WC.Ecoli.models[[55]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(H), data=WC1)
+WC.Ecoli.models[[56]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(Rain), data=WC1)
+WC.Ecoli.models[[57]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(Flow_max), data=WC1)
+WC.Ecoli.models[[58]]  <- lm( E_coli_MPN ~ scale(Developed_LMH) + scale(Flow_day), data=WC1)
+
+
 Mods.WC.Ecoli <- paste("model", 1:length(WC.Ecoli.models), sep = " ")
 aictab(cand.set = WC.Ecoli.models, modnames = Mods.WC.Ecoli, sort = TRUE)
 
@@ -861,24 +1173,107 @@ summary(WC.Ecoli.models[[25]])
 summary(WC.Ecoli.models[[7]])
 summary(WC.Ecoli.models[[13]])
 plot(E_coli_MPN ~ Flow_day + H + SPC, data = WC1)
+
 ```
 ##LMER
 ```{r lmer}
+#WC2 <- subset(WC, Site != "Mouth")
 
-WC1 <- subset(WC, E_coli_MPN != 0)
 print(WC1)
 
-lmer <- lmer(E_coli_MPN ~ scale(Turbidity) + 
+all <- subset(WC, Site == "Ranch Bar" | Site == "Cricket Hollow" | Site == "Grandstaff Run" | Site == "Britt's Run" | Site == "County Line Bridge" | Site == "Elm Grove Park" | Site == "Junior Ave" | Site == "Washington" | Site == "Kroger" | Site == "Fulton" | Site == "Tunnel Green" | Site == "Mouth")
+print(all)
+up <- subset(WC, Site == "Ranch Bar" | Site == "Cricket Hollow" | Site == "Grandstaff Run" | Site == "Britt's Run" | Site == "County Line Bridge")
+down <- subset(WC, Site == "Elm Grove Park" | Site == "Junior Ave" | Site == "Washington" | Site == "Kroger" | Site == "Fulton" | Site == "Tunnel Green")
+
+WCREC <- subset(rec, E_coli_MPN != 0)
+WCOFF <- subset(off, E_coli_MPN != 0)
+
+wcmodel <- lmer(E_coli_MPN ~ 
+               scale(Turbidity) + 
                scale(Temp) +
                scale(SPC) + 
                scale(H) +
-               scale(Rain_cm) + 
-               scale(Flow_max) +
+               scale(Rain) + 
+               scale(Flow_mean) +
                #scale(Prev_site) +
-               scale(Prev_date) +
-               (1 | Site) +
-               (1 | Month),
-             data = WC1, REML = FALSE, lmerControl(optCtrl = list(maxfun=20000)))
+               #scale(Prev_date) +
+               scale(Developed_Total) +
+               scale(CSO_total) +
+               (1 | Site),
+             data = WC, REML = FALSE, lmerControl(optCtrl = list(maxfun=20000)))
+summary(wcmodel)
+confint(wcmodel)
+r.squaredGLMM(wcmodel)
+
+all <- coefplot(wcmodel, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Wheeling Creek"))
+
+
+
+plot(WC$Developed_Total, WC$CSO_total)
+
+wcrecmodel <- lmer(E_coli_MPN ~ scale(Turbidity) + 
+               scale(Temp) +
+               scale(SPC) + 
+               scale(H) +
+               scale(Rain) + 
+               scale(Flow_mean) +
+               #scale(Prev_site) +
+               #scale(Prev_date) +
+               scale(Developed_Total) +
+               scale(CSO) +
+               (1 | Site),
+             data = rec, REML = FALSE, lmerControl(optCtrl = list(maxfun=20000)))
+
+summary(wcrecmodel)
+confint(wcrecmodel)
+r.squaredGLMM(wcrecmodel)
+
+rec <- coefplot(wcrecmodel, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Wheeling Creek Rec"))
+
+wcoffmodel <- lmer(E_coli_MPN ~ scale(Turbidity) + 
+               scale(Temp) +
+               scale(SPC) + 
+               scale(H) +
+               scale(Rain) + 
+               scale(Flow_mean) +
+               #scale(Prev_site) +
+               #scale(Prev_date) +
+               scale(Developed_Total) +
+               scale(CSO) +
+               (1 | Site),
+             data = off, REML = FALSE, lmerControl(optCtrl = list(maxfun=20000)))
+
+summary(wcoffmodel)
+confint(wcoffmodel)
+
+r.squaredGLMM(wcoffmodel)
+
+off <- coefplot(wcoffmodel, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Wheeling Creek Off"))
+
+plot_grid(all, rec, off, labels = c('A', 'B', 'C'), label_size = 12, ncol = 1)
+
+
+tab_model(wcmodel, wcrecmodel, wcoffmodel, show.df = TRUE,
+dv.labels = c("Wheeling Creek All", "Wheeling Creek Rec", "Wheeling Creek Off"))
+
+#nutrients vs. ecoli and development correlation
+
 
 #control = na.action = "na.fail"
 
@@ -905,7 +1300,41 @@ r.squaredGLMM(lmer(E_coli_MPN ~ scale(H) + scale(Temp) + (1|Site), data = WC1, R
 # the r2 of the top model
 ```
 
-##ANOVA
+##catterpillar plot
+```{r}
+wc_cat <- read.csv(file.choose(), stringsAsFactors = TRUE)
+#X15N_Cat_plot<-(X15N_cat[-c(10),])
+head(wc_cat)
+
+#coefplot(df, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5))
+
+wc_cat$Predictor.a <- factor(wc_cat$Predictor, levels = wc_cat$Predictor[order((wc_cat$Mean),decreasing=TRUE)])
+
+wc_cat.plot<-ggplot(data=wc_cat,aes(x=Mean,y=Predictor))+
+  geom_point(shape=16, size =4)+
+  geom_errorbarh(aes(xmin= wc_cat$LCI, xmax= wc_cat$UCI),height=0.0,size=1, colour="black")+
+  geom_vline(xintercept=0,linetype="dashed")+
+  scale_x_continuous(breaks=seq(-2000,2000, 500), limits=c(-2000,2000), "") +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        legend.position="none",
+        axis.line.x = element_line(colour = "black"),
+        axis.line.y = element_line(colour = "black"),
+        axis.text.x = element_text(size=12, colour="black"),
+        axis.text.y = element_text(size=12, colour="black"),
+        axis.title.x = element_text(size=12),
+        axis.title.y = element_text(size=0),
+        plot.title = element_text(hjust = 0.5, vjust = -4))+
+        ggtitle("wc") +
+        theme(plot.title= element_text(size=12, face="bold"))
+ 
+wc_cat.plot
+```
+
+
+
+
 ```{r anova}
 
 head(WC1)
@@ -930,5 +1359,357 @@ get_anova_table(res.aov)
 
 
 ```
+##coefplots
+```{r coefplot}
+RB1 <- subset(RB, Season == "Rec")
+RB2 <- subset(RB, Season == "Non-rec")
 
+Ranch.all <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = RB)
+all <- coefplot(Ranch.all, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Ranch Bar"))
+Ranch.rec <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = RB1)
+rec <- coefplot(Ranch.rec, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Ranch Bar Rec"))
+Ranch.off <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = RB2)
+off <- coefplot(Ranch.off, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Ranch Bar Off"))
+
+plot_grid(all, rec, off, labels = c('A', 'B', 'C'), label_size = 12, ncol = 1)
+
+tab_model(Ranch.all, Ranch.rec, Ranch.off, show.df = TRUE,
+dv.labels = c("Ranch Bar All", "Ranch Bar Rec", "Ranch Bar Off"))
+
+CH1 <- subset(CH, Season == "Rec")
+CH2 <- subset(CH, Season == "Non-rec")
+
+CH.all <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = CH)
+all <- coefplot(CH.all, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Cricket Hollow"))
+CH.rec <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = CH1)
+rec <-coefplot(CH.rec, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Cricket Hollow Rec"))
+CH.off <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = CH2)
+off <- coefplot(CH.off, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Cricket Hollow Off"))
+plot_grid(all, rec, off, labels = c('A', 'B', 'C'), label_size = 12, ncol = 1)
+
+tab_model(CH.all, CH.rec, CH.off, show.df = TRUE,
+dv.labels = c("Cricket Hollow All", "Cricket Hollow Rec", "Cricket Hollow Off"))
+
+GR1 <- subset(GR, Season == "Rec")
+GR2 <- subset(GR, Season == "Non-rec")
+
+GR.all <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = GR)
+all <- coefplot(GR.all, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Grandstaff Run"))
+GR.rec <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = GR1)
+rec <- coefplot(GR.rec, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Grandstaff Run Rec"))
+GR.off <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = GR2)
+off <- coefplot(GR.off, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Grandstaff Run Off"))
+plot_grid(all, rec, off, labels = c('A', 'B', 'C'), label_size = 12, ncol = 1)
+
+tab_model(GR.all, GR.rec, GR.off, show.df = TRUE,
+dv.labels = c("Grandstaff Run All", "Grandstaff Run Rec", "Grandstaff Run Off"))
+
+BR1 <- subset(BR, Season == "Rec")
+BR2 <- subset(BR, Season == "Non-rec")
+
+BR.all <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = BR)
+all <- coefplot(BR.all, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Britt's Run"))
+BR.rec <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = BR1)
+rec <- coefplot(BR.rec, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Britt's Run Rec"))
+BR.off <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = BR2)
+off <- coefplot(BR.off, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Britt's Run Off"))
+plot_grid(all, rec, off, labels = c('A', 'B', 'C'), label_size = 12, ncol = 1)
+
+tab_model(BR.all, BR.rec, BR.off, show.df = TRUE,
+dv.labels = c("Britt's Run All", "Britt's Run Rec", "Britt's Run Off"))
+
+
+CL1 <- subset(CL, Season == "Rec")
+CL2 <- subset(CL, Season == "Non-rec")
+
+CL.all <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = CL)
+all <- coefplot(CL.all, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("County Line Bridge"))
+CL.rec <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = CL1)
+rec <- coefplot(CL.rec, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("County Line Bridge Rec"))
+CL.off <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = CL2)
+off <- coefplot(CL.off, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("County Line Bridge Off"))
+plot_grid(all, rec, off, labels = c('A', 'B', 'C'), label_size = 12, ncol = 1)
+
+tab_model(CL.all, CL.rec, CL.off, show.df = TRUE,
+dv.labels = c("County Line Bridge All", "County Line Bridge Rec", "County Line Bridge Off"))
+
+EG1 <- subset(EG, Season == "Rec")
+EG2 <- subset(EG, Season == "Non-rec")
+
+EG.all <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = EG)
+all <- coefplot(EG.all, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Elm Grove Park"))
+EG.rec <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = EG1)
+rec <- coefplot(EG.rec, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Elm Grove Park Rec"))
+EG.off <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = EG2)
+off <- coefplot(EG.off, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Elm Grove Park Off"))
+plot_grid(all, rec, off, labels = c('A', 'B', 'C'), label_size = 12, ncol = 1)
+
+tab_model(EG.all, EG.rec, EG.off, show.df = TRUE,
+dv.labels = c("Elm Grove Park All", "Elm Grove Park Rec", "Elm Grove Park Off"))
+
+JR1 <- subset(JR, Season == "Rec")
+JR2 <- subset(JR, Season == "Non-rec")
+
+JR.all <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = JR)
+all <- coefplot(JR.all, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Junior Ave"))
+JR.rec <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = JR1)
+rec <- coefplot(JR.rec, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Junior Ave Rec"))
+JR.off <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = JR2)
+off <- coefplot(JR.off, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Junior Ave Off"))
+plot_grid(all, rec, off, labels = c('A', 'B', 'C'), label_size = 12, ncol = 1)
+
+tab_model(JR.all, JR.rec, JR.off, show.df = TRUE,
+dv.labels = c("Junior Ave All", "Junior Ave Rec", "Junior Ave Off"))
+
+WA1 <- subset(WA, Season == "Rec")
+WA2 <- subset(WA, Season == "Non-rec")
+
+WA.all <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = WA)
+all <- coefplot(WA.all, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Washington Ave"))
+WA.rec <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = WA1)
+rec <- coefplot(WA.rec, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Washington Ave Rec"))
+WA.off <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = WA2)
+off <- coefplot(WA.off, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Washington Ave Off"))
+plot_grid(all, rec, off, labels = c('A', 'B', 'C'), label_size = 12, ncol = 1)
+
+tab_model(WA.all, WA.rec, WA.off, show.df = TRUE,
+dv.labels = c("Washington Ave All", "Washington Ave Rec", "Washington Ave Off"))
+
+KR1 <- subset(KR, Season == "Rec")
+KR2 <- subset(KR, Season == "Non-rec")
+
+KR.all <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = KR)
+all <- coefplot(KR.all, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Kroger"))
+KR.rec <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = KR1)
+rec <- coefplot(KR.rec, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Kroger Rec"))
+KR.off <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = KR2)
+off <- coefplot(KR.off, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Kroger Off"))
+plot_grid(all, rec, off, labels = c('A', 'B', 'C'), label_size = 12, ncol = 1)
+
+tab_model(KR.all, KR.rec, KR.off, show.df = TRUE,
+dv.labels = c("Kroger All", "Kroger Rec", "Kroger Off"))
+
+FN1 <- subset(FN, Season == "Rec")
+FN2 <- subset(FN, Season == "Non-rec")
+
+FN.all <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = FN)
+all <- coefplot(FN.all, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Fulton"))
+FN.rec <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = FN1)
+rec <- coefplot(FN.rec, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Fulton Rec"))
+FN.off <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = FN2)
+off <- coefplot(FN.off, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Fulton Off"))
+plot_grid(all, rec, off, labels = c('A', 'B', 'C'), label_size = 12, ncol = 1)
+
+tab_model(FN.all, FN.rec, FN.off, show.df = TRUE,
+dv.labels = c("Fulton All", "Fulton Rec", "Fulton Off"))
+
+TG1 <- subset(TG, Season == "Rec")
+TG2 <- subset(TG, Season == "Non-rec")
+
+TG.all <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = TG)
+all <- coefplot(TG.all, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Tunnel Green"))
+TG.rec <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = TG1)
+rec <- coefplot(TG.rec, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Tunnel Green Rec"))
+TG.off <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = TG2)
+off <- coefplot(TG.off, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Tunnel Green Off"))
+plot_grid(all, rec, off, labels = c('A', 'B', 'C'), label_size = 12, ncol = 1)
+
+tab_model(TG.all, TG.rec, TG.off, show.df = TRUE,
+dv.labels = c("Tunnel Green All", "Tunnel Green Rec", "Tunnel Green Off"))
+
+MH1 <- subset(MH, Season == "Rec")
+MH2 <- subset(MH, Season == "Non-rec")
+
+MH.all <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = MH)
+all <- coefplot(MH.all, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Mouth"))
+MH.rec <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = MH1)
+rec <- coefplot(MH.rec, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Mouth Rec"))
+MH.off <- lm(E_coli_MPN ~ scale(SPC) + scale(Turbidity) + scale(Temp) + scale(Rain) + scale(Flow_mean) + scale(H), data = MH2)
+off <- coefplot(MH.off, color = "black", decreasing = TRUE, sort = "magnitude", intercept = FALSE, innerCI = 0, levels(97.5)) +
+  theme_classic() + 
+  theme(text = element_text(size=17), axis.text.x = element_text(size=15), axis.text.y = element_text(size=15)) +
+  xlab("Confidence Interval") +
+  ylab("Predictors") +
+  labs(title = ("Mouth Off"))
+plot_grid(all, rec, off, labels = c('A', 'B', 'C'), label_size = 12, ncol = 1)
+
+tab_model(MH.all, MH.rec, MH.off, show.df = TRUE,
+dv.labels = c("Mouth All", "Mouth Rec", "Mouth Off"))
+
+```
 
